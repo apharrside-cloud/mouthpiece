@@ -60,7 +60,7 @@ class ChipOverlay(private val context: Context, private val wm: WindowManager) {
         for (a in actions) {
             row.addView(TextView(context).apply {
                 text = a.label
-                setTextColor(Color.parseColor("#D0BCFF"))
+                setTextColor(Color.parseColor("#FFA45C"))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                 typeface = Typeface.DEFAULT_BOLD
                 setPadding(px(10), px(6), px(10), px(6))

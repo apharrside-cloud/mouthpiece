@@ -16,9 +16,11 @@ import android.provider.Settings
 import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.HorizontalScrollView
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
@@ -114,7 +116,21 @@ class SettingsActivity : Activity() {
             text = "Mouthpiece"; setTextSize(TypedValue.COMPLEX_UNIT_SP, 26f)
             typeface = Typeface.DEFAULT_BOLD; setPadding(dp(20), dp(16), dp(20), dp(8))
         }
-        page.addView(titleView)
+        val logo = ImageView(this).apply {
+            setImageDrawable(getDrawable(R.mipmap.ic_launcher))
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            outlineProvider = object : android.view.ViewOutlineProvider() {
+                override fun getOutline(v: View, o: android.graphics.Outline) = o.setRoundRect(0, 0, v.width, v.height, dp(10).toFloat())
+            }
+            clipToOutline = true
+        }
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(20), 0, dp(20), 0)
+            addView(logo, LinearLayout.LayoutParams(dp(40), dp(40)))
+        }
+        titleView.setPadding(dp(12), dp(16), 0, dp(8))
+        header.addView(titleView)
+        page.addView(header)
         tabBar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(12), 0, dp(12), dp(8)) }
         tabScroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(tabBar) }
         page.addView(tabScroll)
@@ -222,7 +238,7 @@ class SettingsActivity : Activity() {
         val missing = OnboardingChecks.missing(micGranted(), serviceEnabled(), models.isInstalled(prefs.modelName), batteryExempt())
         if (missing.isEmpty()) {
             card("Ready") {
-                text("Tap a text field in any app, then tap the purple mic bubble, or press and hold it, speak, and let go. Speech never leaves this phone.")
+                text("Tap a text field in any app, then tap the orange mic bubble, or press and hold it, speak, and let go. Speech never leaves this phone.")
             }
         } else {
             card("Finish setup") { missing.forEach { stepRow(this, it) } }

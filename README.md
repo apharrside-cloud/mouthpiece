@@ -16,9 +16,9 @@ device and it works in airplane mode. No account, no ads, no subscription.
    - **Enable the service**: Accessibility, Installed apps, Mouthpiece, on.
    - **Download a speech model**: one-time download (32 MB to 575 MB, your choice), SHA-256 verified. Everything after that is offline.
    - **Battery exemption** (recommended) so Android does not stop the service.
-3. Tap a text field in any app. A purple bubble appears next to it.
+3. Tap a text field in any app. An orange bubble appears next to it.
 
-Bubble colors: purple idle, green listening, amber transcribing, red error (a toast gives the reason).
+Bubble colors: orange idle, teal listening, violet transcribing, crimson error (a toast gives the reason).
 The bubble never appears on password fields or inside Mouthpiece itself.
 
 ## Using it

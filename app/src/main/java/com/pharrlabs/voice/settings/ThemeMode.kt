@@ -26,15 +26,15 @@ data class Palette(
 
 object Palettes {
     val light = Palette(
-        bg = 0xFFFFFFFF.toInt(), surface = 0xFFF7F2FA.toInt(), ink = 0xFF1D1B20.toInt(), muted = 0xFF625B71.toInt(),
-        accent = 0xFF6750A4.toInt(), accentSoft = 0xFFEADDFF.toInt(), onAccent = 0xFFFFFFFF.toInt(),
-        outline = 0xFFCAC4D0.toInt(), chipBg = 0xFFFFFFFF.toInt(),
+        bg = 0xFFFFFAF5.toInt(), surface = 0xFFFFF0E3.toInt(), ink = 0xFF1D1B20.toInt(), muted = 0xFF6B5546.toInt(),
+        accent = 0xFFA84300.toInt(), accentSoft = 0xFFFFDDBF.toInt(), onAccent = 0xFFFFFFFF.toInt(),
+        outline = 0xFFE0CBB8.toInt(), chipBg = 0xFFFFFFFF.toInt(),
     )
 
     val dark = Palette(
-        bg = 0xFF141218.toInt(), surface = 0xFF2B2930.toInt(), ink = 0xFFE6E0E9.toInt(), muted = 0xFFCAC4D0.toInt(),
-        accent = 0xFFD0BCFF.toInt(), accentSoft = 0xFF4F378B.toInt(), onAccent = 0xFF381E72.toInt(),
-        outline = 0xFF79747E.toInt(), chipBg = 0xFF1D1B20.toInt(),
+        bg = 0xFF17120E.toInt(), surface = 0xFF2A2019.toInt(), ink = 0xFFF3E9E0.toInt(), muted = 0xFFD2C3B6.toInt(),
+        accent = 0xFFFFA45C.toInt(), accentSoft = 0xFF5A3515.toInt(), onAccent = 0xFF2B1608.toInt(),
+        outline = 0xFF8A7565.toInt(), chipBg = 0xFF1F1812.toInt(),
     )
 
     fun of(mode: ThemeMode, systemNight: Boolean): Palette = if (mode.isDark(systemNight)) dark else light

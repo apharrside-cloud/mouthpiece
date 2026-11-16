@@ -9,7 +9,7 @@ import android.graphics.RectF
 import android.view.View
 import android.view.animation.LinearInterpolator
 
-/** The floating mic bubble: purple idle, green + pulse while listening, amber spinner while processing, red on error. */
+/** The floating mic bubble: orange idle, teal + pulse while listening, violet spinner while processing, crimson on error. */
 class BubbleView(
     context: Context,
     private val gestureFactory: () -> BubbleGesture,
@@ -112,12 +112,7 @@ class BubbleView(
     override fun onDraw(canvas: Canvas) {
         val shape = BubbleShape.of(width.toFloat(), height.toFloat(), 3 * d, style)
         val p = shape.pill
-        fill.color = when (state) {
-            BubbleState.Idle -> Color.parseColor("#6750A4")
-            BubbleState.Listening -> Color.parseColor("#1B8A5A")
-            BubbleState.Processing -> Color.parseColor("#C77700")
-            is BubbleState.Error -> Color.parseColor("#C62828")
-        }
+        fill.color = BubbleColors.of(state)
         if (state == BubbleState.Listening) {
             ring.alpha = ((1f - phase) * 200).toInt()
             val grow = (phase * 3 + level * 6) * d

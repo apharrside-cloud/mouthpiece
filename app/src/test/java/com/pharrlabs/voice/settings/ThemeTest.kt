@@ -51,4 +51,20 @@ class ThemeTest {
         assertEquals(Palettes.dark, Palettes.of(ThemeMode.Dark, systemNight = false))
         assertEquals(Palettes.light, Palettes.of(ThemeMode.System, systemNight = false))
     }
+
+    private fun hue(c: Int): Float {
+        val r = ((c shr 16) and 0xFF) / 255f; val g = ((c shr 8) and 0xFF) / 255f; val b = (c and 0xFF) / 255f
+        val mx = maxOf(r, g, b); val mn = minOf(r, g, b); val d = mx - mn
+        if (d == 0f) return 0f
+        val h = when (mx) { r -> ((g - b) / d) % 6f; g -> (b - r) / d + 2f; else -> (r - g) / d + 4f }
+        return (h * 60f + 360f) % 360f
+    }
+
+    @Test fun lightAccentIsBrandOrange() = assertTrue("hue ${hue(Palettes.light.accent)}", hue(Palettes.light.accent) in 15f..35f)
+
+    @Test fun darkAccentIsBrandOrange() = assertTrue("hue ${hue(Palettes.dark.accent)}", hue(Palettes.dark.accent) in 15f..35f)
+
+    @Test fun cardsAreWarmNotLavender() {
+        for (p in listOf(Palettes.light, Palettes.dark)) assertTrue("hue ${hue(p.surface)}", hue(p.surface) in 10f..45f)
+    }
 }
