@@ -1,0 +1,3 @@
+<resources>
+    <string name="service_description">Shows a microphone bubble on text fields so you can dictate. Speech is transcribed on this phone.</string>
+</resources>

@@ -1,0 +1,13 @@
+build/
+.gradle/
+local.properties
+*.bin
+*.keystore
+*.jks
+.superpowers/
+release/
+.idea/
+*.iml
+__pycache__/
+*.pyc
+docs/acceptance/*.png

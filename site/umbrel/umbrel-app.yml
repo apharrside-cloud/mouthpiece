@@ -1,0 +1,17 @@
+manifestVersion: 1.1
+id: voice
+category: files
+name: "Pharr Voice"
+version: "0.3.0"
+tagline: "Free private voice typing for Android: download page"
+description: "Public download page for the Pharr Voice Android app (voice.pharrlabs.com). Serves the signed APK, install steps and a checksum."
+developer: PharrLabs
+website: "https://voice.pharrlabs.com"
+dependencies: []
+repo: ""
+support: ""
+port: 8080
+gallery: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
