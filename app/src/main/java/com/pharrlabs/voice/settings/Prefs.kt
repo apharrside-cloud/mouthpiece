@@ -5,6 +5,7 @@ import com.pharrlabs.voice.BuildConfig
 import com.pharrlabs.voice.bubble.BubbleIcon
 import com.pharrlabs.voice.bubble.BubbleVisibility
 import com.pharrlabs.voice.bubble.BubbleStyle
+import com.pharrlabs.voice.bubble.BubbleTint
 import com.pharrlabs.voice.clean.PeriodMode
 import com.pharrlabs.voice.clean.Style
 import com.pharrlabs.voice.clean.StylePresets
@@ -64,6 +65,15 @@ class Prefs(context: Context) {
         set(v) = sp.edit().putString("update_skipped", v).apply()
 
     /** Symbol drawn on the floating button. */
+    var bubbleTint: BubbleTint
+        get() = BubbleTint.parse(sp.getString("bubble_color", null))
+        set(v) = sp.edit().putString("bubble_color", v.name).apply()
+
+    /** True once the welcome splash has been shown; not part of backups, so a restored install still gets it once. */
+    var splashSeen: Boolean
+        get() = sp.getBoolean("splash_seen", false)
+        set(v) = sp.edit().putBoolean("splash_seen", v).apply()
+
     var bubbleIcon: BubbleIcon
         get() = BubbleIcon.parse(sp.getString("bubble_icon", null))
         set(v) = sp.edit().putString("bubble_icon", v.name).apply()
@@ -218,7 +228,7 @@ class Prefs(context: Context) {
 
     companion object {
         val BACKUP_KEYS = setOf(
-            "model", "bubble_size", "bubble_shape", "bubble_icon", "bubble_left", "period_mode", "smart_edit", "voice_edit", "interaction", "auto_stop_ms",
+            "model", "bubble_size", "bubble_shape", "bubble_icon", "bubble_color", "bubble_left", "period_mode", "smart_edit", "voice_edit", "interaction", "auto_stop_ms",
             "streaming", "live_caption", "undo_chip", "bubble_off_x", "bubble_off_y", "idle_opacity", "hidden_apps",
             "auto_learn", "format_numbers", "update_check", "theme_mode", "default_style", "app_rules", "dictionary", "dictionary_seeded", "history_enabled",
         )

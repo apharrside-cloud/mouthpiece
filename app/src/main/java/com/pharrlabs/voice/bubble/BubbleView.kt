@@ -35,6 +35,10 @@ class BubbleView(
     var style: BubbleStyle = BubbleStyle.Pill
         set(v) { field = v; invalidate() }
 
+    /** Idle color chosen in Settings. */
+    var tint: BubbleTint = BubbleTint.Orange
+        set(v) { field = v; invalidate() }
+
     /** Symbol chosen in Settings. */
     var symbol: BubbleIcon = BubbleIcon.Mic
         set(v) { field = v; invalidate() }
@@ -112,7 +116,7 @@ class BubbleView(
     override fun onDraw(canvas: Canvas) {
         val shape = BubbleShape.of(width.toFloat(), height.toFloat(), 3 * d, style)
         val p = shape.pill
-        fill.color = BubbleColors.of(state)
+        fill.color = BubbleColors.of(state, tint.argb)
         if (state == BubbleState.Listening) {
             ring.alpha = ((1f - phase) * 200).toInt()
             val grow = (phase * 3 + level * 6) * d
@@ -148,6 +152,22 @@ class BubbleView(
                 canvas.drawPath(path, iconFill)
                 val dotY = (c.body.top + c.body.bottom) / 2
                 for (dx in listOf(-0.22f, 0f, 0.22f)) canvas.drawCircle(shape.cx + dx * shape.iconSize, dotY, shape.iconSize * 0.07f, fill)
+            }
+            BubbleIcon.Lips -> {
+                val open = if (state == BubbleState.Listening) 0.45f + 0.55f * level else 1f
+                // The microphone-sized icon box is as wide as the tall pill, so the wide lips get a smaller box there and a bigger one in round outlines.
+                val lipsSize = shape.iconSize * if (style == BubbleStyle.Pill) 0.84f else 1.2f
+                val l = IconGeometry.lips(shape.cx, shape.cy, lipsSize, open)
+                path.reset()
+                l.outer.forEachIndexed { i, p -> if (i == 0) path.moveTo(p.first, p.second) else path.lineTo(p.first, p.second) }
+                path.close()
+                canvas.drawPath(path, iconFill)
+                path.reset()
+                l.mouth.forEachIndexed { i, p -> if (i == 0) path.moveTo(p.first, p.second) else path.lineTo(p.first, p.second) }
+                path.close()
+                canvas.drawPath(path, fill)
+                rect.set(l.teeth.left, l.teeth.top, l.teeth.right, l.teeth.bottom)
+                canvas.drawRoundRect(rect, 1.5f * d, 1.5f * d, iconFill)
             }
             BubbleIcon.Sparkle -> {
                 path.reset()

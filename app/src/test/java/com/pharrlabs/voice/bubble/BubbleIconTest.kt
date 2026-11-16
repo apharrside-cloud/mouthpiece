@@ -60,4 +60,46 @@ class BubbleIconTest {
         assertEquals(BubbleIcon.Mic, BubbleIcon.parse(null))
         assertTrue(BubbleIcon.values().all { it.label.isNotBlank() })
     }
+
+    private fun inside(poly: List<Pair<Float, Float>>, x: Float, y: Float): Boolean {
+        var c = false; var j = poly.size - 1
+        for (i in poly.indices) {
+            val (xi, yi) = poly[i]; val (xj, yj) = poly[j]
+            if ((yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c
+            j = i
+        }
+        return c
+    }
+
+    @Test fun lipsIsOfferedAsAnIcon() = assertEquals(BubbleIcon.Lips, BubbleIcon.parse("Lips"))
+
+    @Test fun lipsStayInsideTheIconSquare() {
+        val l = IconGeometry.lips(cx, cy, size)
+        for ((x, y) in l.outer + l.mouth) assertTrue("$x,$y", x >= cx - size / 2 - 0.01f && x <= cx + size / 2 + 0.01f && y >= cy - size / 2 && y <= cy + size / 2)
+    }
+
+    @Test fun lipsAreMirroredLeftToRight() {
+        val l = IconGeometry.lips(cx, cy, size)
+        for (pts in listOf(l.outer, l.mouth)) for ((x, y) in pts)
+            assertTrue(pts.any { (x2, y2) -> kotlin.math.abs(x2 - (2 * cx - x)) < 0.05f && kotlin.math.abs(y2 - y) < 0.05f })
+    }
+
+    @Test fun mouthSitsInsideTheLipsAndTeethInsideTheMouth() {
+        val l = IconGeometry.lips(cx, cy, size)
+        for ((x, y) in l.mouth) assertTrue(inside(l.outer, x, y))
+        val t = l.teeth
+        for ((x, y) in listOf(t.left to t.top, t.right to t.top, t.left to t.bottom, t.right to t.bottom)) assertTrue("$x,$y", inside(l.mouth, x, y))
+    }
+
+    @Test fun lipsOpenWiderWhenLoud() {
+        val quiet = IconGeometry.lips(cx, cy, size, open = 0.3f).mouth
+        val loud = IconGeometry.lips(cx, cy, size, open = 1f).mouth
+        assertTrue(loud.maxOf { it.second } - loud.minOf { it.second } > quiet.maxOf { it.second } - quiet.minOf { it.second })
+    }
+
+    @Test fun teethStayInsideEvenWhenTheMouthIsNearlyClosed() {
+        val l = IconGeometry.lips(cx, cy, size, open = 0.3f)
+        val t = l.teeth
+        for ((x, y) in listOf(t.left to t.top, t.right to t.bottom)) assertTrue("$x,$y", inside(l.mouth, x, y))
+    }
 }

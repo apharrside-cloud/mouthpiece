@@ -28,6 +28,7 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import com.pharrlabs.voice.bubble.BubbleIcon
+import com.pharrlabs.voice.bubble.BubbleTint
 import com.pharrlabs.voice.bubble.BubbleService
 import com.pharrlabs.voice.bubble.BubbleVisibility
 import com.pharrlabs.voice.update.UpdateCheck
@@ -42,6 +43,7 @@ import com.pharrlabs.voice.settings.AppRule
 import com.pharrlabs.voice.settings.OnboardingChecks
 import com.pharrlabs.voice.settings.Palette
 import com.pharrlabs.voice.settings.Palettes
+import com.pharrlabs.voice.settings.SplashPolicy
 import com.pharrlabs.voice.settings.ThemeMode
 import com.pharrlabs.voice.ui.FlowLayout
 import com.pharrlabs.voice.settings.OnboardingChecks.Step
@@ -138,7 +140,10 @@ class SettingsActivity : Activity() {
         scroll = ScrollView(this).apply { addView(content) }
         page.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         scroll.clipToPadding = false
-        setContentView(page)
+        val root = android.widget.FrameLayout(this)
+        root.addView(page, android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        setContentView(root)
+        if (SplashPolicy.shouldShow(prefs.splashSeen)) { prefs.splashSeen = true; showSplash(root) }
         // Edge-to-edge: keep content clear of the status bar, the gesture bar and the keyboard.
         page.setOnApplyWindowInsetsListener { v, insets ->
             val bars = insets.getInsets(android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.ime())
@@ -146,6 +151,35 @@ class SettingsActivity : Activity() {
             insets
         }
         applyTheme()
+    }
+
+    /** One-time welcome: the Pharr Labs pilot on brand orange, fading away by itself or on tap. */
+    private fun showSplash(root: android.widget.FrameLayout) {
+        val dark = 0xFF1D1B20.toInt()
+        val splash = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+            setBackgroundColor(0xFFFC7E21.toInt()); isClickable = true
+            addView(ImageView(context).apply { setImageResource(R.drawable.splash_mascot); scaleType = ImageView.ScaleType.FIT_CENTER },
+                LinearLayout.LayoutParams(dp(260), dp(260)))
+            addView(TextView(context).apply {
+                text = "Mouthpiece"; setTextSize(TypedValue.COMPLEX_UNIT_SP, 34f); typeface = Typeface.DEFAULT_BOLD
+                setTextColor(dark); gravity = Gravity.CENTER; setPadding(0, dp(16), 0, 0)
+            })
+            addView(TextView(context).apply {
+                text = "by Pharr Labs"; setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                setTextColor(dark); gravity = Gravity.CENTER; setPadding(0, dp(4), 0, 0)
+            })
+        }
+        root.addView(splash, android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        var gone = false
+        val dismiss = {
+            if (!gone) {
+                gone = true
+                splash.animate().alpha(0f).setDuration(SplashPolicy.FADE_MS).withEndAction { root.removeView(splash) }.start()
+            }
+        }
+        splash.setOnClickListener { dismiss() }
+        splash.postDelayed({ dismiss() }, SplashPolicy.SHOW_MS)
     }
 
     override fun onResume() { super.onResume(); render(); maybeCheckForUpdate(force = false) }
@@ -365,6 +399,7 @@ class SettingsActivity : Activity() {
                     interactive = false
                     style = prefs.bubbleShape
                     symbol = prefs.bubbleIcon
+                    tint = prefs.bubbleTint
                 }
                 lookPreview = preview
                 applyPreviewLook()
@@ -378,6 +413,8 @@ class SettingsActivity : Activity() {
                     chips { BubbleStyle.values().forEach { st -> chipButton(st.label, prefs.bubbleShape == st) { prefs.bubbleShape = st; render() } } }
                     label("Icon")
                     chips { BubbleIcon.values().forEach { ic -> chipButton(ic.label, prefs.bubbleIcon == ic) { prefs.bubbleIcon = ic; render() } } }
+                    label("Color")
+                    chips { BubbleTint.values().forEach { t -> swatch(t, prefs.bubbleTint == t) { prefs.bubbleTint = t; render() } } }
                 }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             }
         }
@@ -648,6 +685,19 @@ class SettingsActivity : Activity() {
         addView(f)
         f.body()
     }
+
+    /** A round color dot for picking the bubble color; the chosen one gets a ring in the text color. */
+    private fun FlowLayout.swatch(t: BubbleTint, on: Boolean, onClick: () -> Unit) = addView(object : View(context) {
+        // FlowLayout offers "at most the full row", which a plain View would take literally; force a fixed round dot.
+        override fun onMeasure(w: Int, h: Int) = setMeasuredDimension(dp(36), dp(36))
+    }.apply {
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL; setColor(t.argb)
+            setStroke(if (on) dp(3) else dp(1), if (on) ink else pal.outline)
+        }
+        contentDescription = t.label + if (on) ", selected" else ""
+        setOnClickListener { onClick() }
+    })
 
     private fun FlowLayout.chipButton(t: String, on: Boolean, onClick: () -> Unit) = addView(TextView(context).apply {
         text = t; setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)

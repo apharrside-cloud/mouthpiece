@@ -37,4 +37,38 @@ class BubbleColorsTest {
         assertEquals(BubbleColors.PROCESSING, BubbleColors.of(BubbleState.Processing))
         assertEquals(BubbleColors.ERROR, BubbleColors.of(BubbleState.Error("x")))
     }
+
+    private fun dist(a: Int, b: Int) = abs(((a shr 16) and 0xFF) - ((b shr 16) and 0xFF)) + abs(((a shr 8) and 0xFF) - ((b shr 8) and 0xFF)) + abs((a and 0xFF) - (b and 0xFF))
+
+    @Test fun orangeIsTheDefaultTint() {
+        assertEquals(BubbleTint.Orange, BubbleTint.parse(null))
+        assertEquals(BubbleTint.Orange, BubbleTint.parse("nope"))
+        assertEquals(BubbleColors.IDLE, BubbleTint.Orange.argb)
+    }
+
+    @Test fun tintsParseByName() = assertEquals(BubbleTint.Blue, BubbleTint.parse("Blue"))
+
+    @Test fun everyTintHasALabelAndAVisibleWhiteGlyph() {
+        for (t in BubbleTint.values()) {
+            assertTrue(t.label.isNotBlank())
+            assertTrue("${t.label} contrast", 1.05 / (lum(t.argb) + 0.05) >= 3.0)
+        }
+    }
+
+    @Test fun noTintLooksLikeAStateColor() {
+        for (t in BubbleTint.values()) for (s in listOf(BubbleColors.LISTENING, BubbleColors.PROCESSING, BubbleColors.ERROR))
+            assertTrue("${t.label} too close to a state color (${dist(t.argb, s)})", dist(t.argb, s) >= 100)
+    }
+
+    @Test fun tintsAreDistinctFromEachOther() {
+        val all = BubbleTint.values()
+        for (i in all.indices) for (j in i + 1 until all.size) assertTrue("${all[i].label}/${all[j].label}", dist(all[i].argb, all[j].argb) >= 100)
+    }
+
+    @Test fun onlyTheIdleStateFollowsTheTint() {
+        val blue = BubbleTint.Blue.argb
+        assertEquals(blue, BubbleColors.of(BubbleState.Idle, blue))
+        assertEquals(BubbleColors.LISTENING, BubbleColors.of(BubbleState.Listening, blue))
+        assertEquals(BubbleColors.ERROR, BubbleColors.of(BubbleState.Error("x"), blue))
+    }
 }

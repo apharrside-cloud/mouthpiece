@@ -286,7 +286,7 @@ class BubbleService : AccessibilityService() {
         focusedPkg = pkg
         if (bubble == null) {
             bubble = BubbleView(this, gestureFactory = { newGesture() }, onEvent = ::onGesture)
-                .also { it.style = prefs.bubbleShape; it.symbol = prefs.bubbleIcon; it.idleAlpha = prefs.idleOpacityPct / 100f; it.setState(machine.state) }
+                .also { it.style = prefs.bubbleShape; it.symbol = prefs.bubbleIcon; it.tint = prefs.bubbleTint; it.idleAlpha = prefs.idleOpacityPct / 100f; it.setState(machine.state) }
             hideTarget.attach() // before the bubble, so the bubble draws on top of it
             wm.addView(bubble, layoutParams(0, 0))
             lastX = Int.MIN_VALUE; lastY = Int.MIN_VALUE
