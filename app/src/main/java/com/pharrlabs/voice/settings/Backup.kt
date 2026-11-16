@@ -8,7 +8,9 @@ import org.json.JSONObject
  * rules and preferences. History is deliberately not included.
  */
 object Backup {
-    const val APP = "pharr-voice"
+    const val APP = "mouthpiece"
+    /** Backups written before the app was renamed stay restorable. */
+    private const val LEGACY_APP = "pharr-voice"
     const val VERSION = 1
 
     fun encode(settings: Map<String, Any?>): String {
@@ -28,7 +30,7 @@ object Backup {
     /** Parsed settings restricted to [allowedKeys], or null if this is not a backup this version can read. */
     fun decode(json: String, allowedKeys: Set<String>): Map<String, Any?>? {
         val root = runCatching { JSONObject(json) }.getOrNull() ?: return null
-        if (root.optString("app") != APP || root.optInt("version", Int.MAX_VALUE) > VERSION) return null
+        if (root.optString("app") !in setOf(APP, LEGACY_APP) || root.optInt("version", Int.MAX_VALUE) > VERSION) return null
         val settings = root.optJSONObject("settings") ?: return null
         val result = linkedMapOf<String, Any?>()
         for (k in settings.keys()) {

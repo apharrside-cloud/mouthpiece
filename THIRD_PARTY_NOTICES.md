@@ -1,6 +1,6 @@
 # Third-party notices
 
-Pharr Voice is MIT licensed (see `LICENSE`). It includes or downloads the following MIT-licensed work.
+Mouthpiece is MIT licensed (see `LICENSE`). It includes or downloads the following MIT-licensed work.
 
 | Component | Use | License |
 |---|---|---|

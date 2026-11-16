@@ -1,25 +1,25 @@
-# Pharr Voice
+# Mouthpiece
 
 Free, private voice typing for Android. A floating bubble appears when you focus a text field in any app;
 tap it, talk, tap again, and the cleaned-up text is typed at your cursor. Speech is transcribed **on your phone**
 with [OpenAI Whisper](https://github.com/openai/whisper) running through whisper.cpp, so your voice never leaves the
 device and it works in airplane mode. No account, no ads, no subscription.
 
-**Download:** [voice.pharrlabs.com](https://voice.pharrlabs.com) or the [latest GitHub release](../../releases/latest)
+**Download:** [mouthpiece.pharrlabs.com](https://mouthpiece.pharrlabs.com) or the [latest GitHub release](../../releases/latest)
 (each release lists a SHA-256 checksum). Android 12 or newer, 64-bit ARM phone (arm64).
 
 ## Install (sideload)
 1. Download the APK and open it. Android asks you to allow installs from your browser or file manager.
-2. Open **Pharr Voice**. The checklist shows what is left:
+2. Open **Mouthpiece**. The checklist shows what is left:
    - **Grant microphone permission.**
-   - **Allow restricted settings** (sideloaded apps only): tap Pharr Voice once in Accessibility (it says "Restricted setting"), then App info, the top-right menu (it only appears after that tap), then **Allow restricted settings**.
-   - **Enable the service**: Accessibility, Installed apps, Pharr Voice, on.
+   - **Allow restricted settings** (sideloaded apps only): tap Mouthpiece once in Accessibility (it says "Restricted setting"), then App info, the top-right menu (it only appears after that tap), then **Allow restricted settings**.
+   - **Enable the service**: Accessibility, Installed apps, Mouthpiece, on.
    - **Download a speech model**: one-time download (32 MB to 575 MB, your choice), SHA-256 verified. Everything after that is offline.
    - **Battery exemption** (recommended) so Android does not stop the service.
 3. Tap a text field in any app. A purple bubble appears next to it.
 
 Bubble colors: purple idle, green listening, amber transcribing, red error (a toast gives the reason).
-The bubble never appears on password fields or inside Pharr Voice itself.
+The bubble never appears on password fields or inside Mouthpiece itself.
 
 ## Using it
 - **Tap** the bubble to start and tap again to finish (it keeps listening through pauses; an optional stop-on-silence timer is in Settings > Dictation). **Press and hold** to talk and release to finish.

@@ -1,4 +1,4 @@
-"""Static download site for Pharr Voice (voice.pharrlabs.com). Standard library only.
+"""Static download site for Mouthpiece (mouthpiece.pharrlabs.com; voice.pharrlabs.com still serves the same site for older installs). Standard library only.
 
 Layout (volume /data):  /data/public/version.json, /data/public/<apk files>, /data/downloads.json (counter).
 The page template is baked into the image; __PLACEHOLDERS__ are filled from version.json at request time,
@@ -113,11 +113,11 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/version.json":
             body = json.dumps(read_version()).encode("utf-8")
             return self.send_bytes(200, body, "application/json", {"Cache-Control": "no-store", "Access-Control-Allow-Origin": "*"})
-        if path in ("/download", "/pharr-voice.apk"):
+        if path in ("/download", "/mouthpiece.apk", "/pharr-voice.apk"):  # last one: old link
             v = read_version()
             if not v.get("file"):
                 return self.send_bytes(404, b"No release published yet", "text/plain; charset=utf-8")
-            return self.send_apk(v["file"], "pharr-voice-%s.apk" % v.get("version", ""))
+            return self.send_apk(v["file"], "mouthpiece-%s.apk" % v.get("version", ""))
         if path.startswith("/files/"):
             name = path[len("/files/"):]
             if name.endswith(".apk"):

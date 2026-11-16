@@ -40,7 +40,7 @@ class ModelManager(private val dir: File, private val specs: Map<String, ModelSp
             val conn = (URL(spec.url).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 15_000
                 readTimeout = 30_000
-                setRequestProperty("User-Agent", "PharrVoice/0.1")
+                setRequestProperty("User-Agent", "Mouthpiece/0.1")
             }
             try {
                 if (conn.responseCode != 200) error("download failed: HTTP ${conn.responseCode}")

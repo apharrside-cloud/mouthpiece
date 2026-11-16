@@ -5,7 +5,7 @@ import org.junit.Test
 
 class SmokeTest {
     @Test
-    fun appIdIsPharrVoice() {
+    fun applicationIdIsStable() {
         assertEquals("com.pharrlabs.voice", BuildConfig.APPLICATION_ID)
     }
 }

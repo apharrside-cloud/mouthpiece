@@ -56,7 +56,7 @@ class SiteTest(unittest.TestCase):
         s, h, b = self.get("/download")
         self.assertEqual(s, 200)
         self.assertEqual(h["content-type"], "application/vnd.android.package-archive")
-        self.assertIn("pharr-voice-9.9.9.apk", h["content-disposition"])
+        self.assertIn("mouthpiece-9.9.9.apk", h["content-disposition"])
         self.assertEqual(b, APK)
 
     def test_downloads_are_counted_but_head_is_not(self):

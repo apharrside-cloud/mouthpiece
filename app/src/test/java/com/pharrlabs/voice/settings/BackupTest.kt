@@ -43,4 +43,13 @@ class BackupTest {
     @Test fun nullValuesSkippedOnEncode() {
         assertEquals(mapOf<String, Any?>("model" to "m"), Backup.decode(Backup.encode(mapOf("model" to "m", "bubble_size" to null)), allowed))
     }
+
+    @Test fun encodeTagsBackupAsMouthpiece() {
+        assertEquals("mouthpiece", org.json.JSONObject(Backup.encode(mapOf("model" to "m"))).getString("app"))
+    }
+
+    @Test fun backupsFromBeforeTheRenameStillRestore() {
+        val old = """{"app":"pharr-voice","version":1,"settings":{"model":{"t":"string","v":"base.en-q5_1"}}}"""
+        assertEquals(mapOf<String, Any?>("model" to "base.en-q5_1"), Backup.decode(old, allowed))
+    }
 }

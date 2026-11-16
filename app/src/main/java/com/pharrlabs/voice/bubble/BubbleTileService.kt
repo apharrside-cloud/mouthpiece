@@ -25,7 +25,7 @@ class BubbleTileService : TileService() {
         val prefs = Prefs(this)
         val now = System.currentTimeMillis()
         tile.state = if (prefs.bubbleActive(now)) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-        tile.label = "Pharr Voice"
+        tile.label = "Mouthpiece"
         tile.subtitle = BubbleVisibility.subtitle(prefs.bubbleOn, prefs.bubbleHiddenUntil, now)
         tile.icon = Icon.createWithResource(this, R.drawable.ic_tile_mic)
         tile.updateTile()

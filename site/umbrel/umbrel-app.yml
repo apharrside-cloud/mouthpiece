@@ -1,12 +1,12 @@
 manifestVersion: 1.1
 id: voice
 category: files
-name: "Pharr Voice"
+name: "Mouthpiece"
 version: "0.3.0"
 tagline: "Free private voice typing for Android: download page"
-description: "Public download page for the Pharr Voice Android app (voice.pharrlabs.com). Serves the signed APK, install steps and a checksum."
+description: "Public download page for the Mouthpiece Android app (mouthpiece.pharrlabs.com). Serves the signed APK, install steps and a checksum."
 developer: PharrLabs
-website: "https://voice.pharrlabs.com"
+website: "https://mouthpiece.pharrlabs.com"
 dependencies: []
 repo: ""
 support: ""

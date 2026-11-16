@@ -418,7 +418,7 @@ class BubbleService : AccessibilityService() {
     private fun hideForTenMinutes() {
         val until = BubbleVisibility.snoozeUntil(System.currentTimeMillis())
         prefs.bubbleHiddenUntil = until
-        Toast.makeText(this, "Bubble hidden for 10 minutes. To bring it back sooner, open Pharr Voice and tap Show now, or use the Quick Settings tile.", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Bubble hidden for 10 minutes. To bring it back sooner, open Mouthpiece and tap Show now, or use the Quick Settings tile.", Toast.LENGTH_LONG).show()
         hideBubble("dragged to the bottom")
         main.removeCallbacks(unsnooze)
         main.postDelayed(unsnooze, BubbleVisibility.SNOOZE_MS + 500)
@@ -601,7 +601,7 @@ class BubbleService : AccessibilityService() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: ModelMissing) {
-                fail("Speech model missing. Open Pharr Voice to install it.")
+                fail("Speech model missing. Open Mouthpiece to install it.")
                 return@launch
             } catch (t: Throwable) {
                 Log.e(tag, "transcription failed", t)

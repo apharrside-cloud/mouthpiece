@@ -7,7 +7,7 @@ import java.net.URL
 
 /** Reads the small version file the download site publishes. Sends nothing about the user or the phone. */
 object UpdateFetcher {
-    const val SITE = "https://voice.pharrlabs.com"
+    const val SITE = "https://mouthpiece.pharrlabs.com"
 
     suspend fun latest(): UpdateInfo? = withContext(Dispatchers.IO) {
         runCatching {

@@ -54,7 +54,7 @@ import java.text.DateFormat
 import java.util.Date
 
 /**
- * Pharr Voice settings: a tab bar (Home, Dictation, Bubble, Words, Apps, History) over card-style sections.
+ * Mouthpiece settings: a tab bar (Home, Dictation, Bubble, Words, Apps, History) over card-style sections.
  * Re-renders on resume so the setup checklist reflects what the user just did in system settings.
  */
 class SettingsActivity : Activity() {
@@ -111,7 +111,7 @@ class SettingsActivity : Activity() {
         models = ModelManager(getExternalFilesDir(null)!!)
         page = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         titleView = TextView(this).apply {
-            text = "Pharr Voice"; setTextSize(TypedValue.COMPLEX_UNIT_SP, 26f)
+            text = "Mouthpiece"; setTextSize(TypedValue.COMPLEX_UNIT_SP, 26f)
             typeface = Typeface.DEFAULT_BOLD; setPadding(dp(20), dp(16), dp(20), dp(8))
         }
         page.addView(titleView)
@@ -212,7 +212,7 @@ class SettingsActivity : Activity() {
         bubbleStatusCard()
         foundUpdate()?.let { u ->
             card("Update available") {
-                text("Pharr Voice ${u.version} is ready${if (u.sizeMb.isNotBlank()) " (${u.sizeMb} MB)" else ""}. You have ${BuildConfig.VERSION_NAME}. Your settings and dictionary stay as they are.")
+                text("Mouthpiece ${u.version} is ready${if (u.sizeMb.isNotBlank()) " (${u.sizeMb} MB)" else ""}. You have ${BuildConfig.VERSION_NAME}. Your settings and dictionary stay as they are.")
                 row {
                     button("Download") { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(UpdateFetcher.SITE))) }
                     button("Skip this version") { prefs.updateSkipped = u.version; render() }
@@ -260,7 +260,7 @@ class SettingsActivity : Activity() {
         }
 
         card("Updates") {
-            text("Pharr Voice ${BuildConfig.VERSION_NAME}")
+            text("Mouthpiece ${BuildConfig.VERSION_NAME}")
             switchRow("Check for updates", "Opening this screen looks at the download site's version file about twice a day. Nothing about you or your phone is sent.", prefs.updateCheck) { prefs.updateCheck = it }
             row { button("Check now") { updateStatus = "Checking…"; render(); maybeCheckForUpdate(force = true) } }
             updateStatus?.let { text(it) }
@@ -482,7 +482,7 @@ class SettingsActivity : Activity() {
                     text(e.text)
                     row {
                         button("Copy") {
-                            (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Pharr Voice", e.text))
+                            (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Mouthpiece", e.text))
                             toast("Copied")
                         }
                         button("Delete") { h.remove(e.timeMs); render() }
@@ -500,12 +500,12 @@ class SettingsActivity : Activity() {
                 box.button("Grant microphone permission") { requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1) }
             }
             Step.AllowRestrictedSettings -> {
-                box.text("Android blocks accessibility for apps installed outside the Play Store. First tap Pharr Voice once in Accessibility settings (it will say \"Restricted setting\"; tap OK). Then open App info, tap the \u22EE menu (top right) and choose \"Allow restricted settings\". The menu only appears after the first step.")
+                box.text("Android blocks accessibility for apps installed outside the Play Store. First tap Mouthpiece once in Accessibility settings (it will say \"Restricted setting\"; tap OK). Then open App info, tap the \u22EE menu (top right) and choose \"Allow restricted settings\". The menu only appears after the first step.")
                 box.button("Open Accessibility settings") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
                 box.button("Open App info") { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) }
             }
             Step.EnableService -> {
-                box.text("Turn on Pharr Voice under Installed apps so the bubble can appear over text fields.")
+                box.text("Turn on Mouthpiece under Installed apps so the bubble can appear over text fields.")
                 box.button("Open Accessibility settings") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
             }
             Step.DownloadModel -> {
@@ -552,7 +552,7 @@ class SettingsActivity : Activity() {
             }.getOrElse { "Export failed: ${it.message}" })
             REQ_IMPORT -> toast(runCatching {
                 val json = contentResolver.openInputStream(uri)!!.use { String(it.readBytes()) }
-                prefs.importBackup(json)?.let { "Restored $it settings" } ?: "That file is not a Pharr Voice backup"
+                prefs.importBackup(json)?.let { "Restored $it settings" } ?: "That file is not a Mouthpiece backup"
             }.getOrElse { "Import failed: ${it.message}" })
         }
         render()
