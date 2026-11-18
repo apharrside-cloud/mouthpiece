@@ -494,8 +494,7 @@ class BubbleService : AccessibilityService() {
     private fun showCaption(text: String) {
         if (machine.state == BubbleState.Idle || lastX == Int.MIN_VALUE) return
         val size = (prefs.bubbleSizeDp * resources.displayMetrics.density).toInt()
-        val tail = if (text.length > 70) "…" + text.takeLast(70) else text
-        chip.show(tail, emptyList(), lastX, lastY, size, timeoutMs = 0, screen = screenBox(), field = fieldArea())
+        chip.show(text, emptyList(), lastX, lastY, size, timeoutMs = 0, screen = screenBox(), field = fieldArea(), liveCaption = true)
     }
 
     private fun stopStreaming() {

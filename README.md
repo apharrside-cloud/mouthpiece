@@ -23,7 +23,7 @@ The bubble never appears on password fields or inside Mouthpiece itself.
 
 ## Using it
 - **Tap** the bubble to start and tap again to finish (it keeps listening through pauses; an optional stop-on-silence timer is in Settings > Dictation). **Press and hold** to talk and release to finish.
-- Text is transcribed phrase by phrase while you talk, so there is little waiting after you stop. A live caption shows next to the bubble.
+- Text is transcribed phrase by phrase while you talk, so there is little waiting after you stop. A five-line live caption next to the bubble follows the latest words; scroll it to review earlier text.
 - Cleanup: fillers ("um", "uh") removed, sentences capitalized, punctuation added. One-line fields (subject, URL bar, search) get no trailing period; prose fields do.
 - Smart edit: "scratch that" drops the last sentence; "no wait", "I mean", "or rather" replace what you just said.
 - Spoken commands: "comma", "period", "question mark", "exclamation point", "colon", "semicolon", "new line", "new paragraph".

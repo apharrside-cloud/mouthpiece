@@ -7,6 +7,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
+import android.text.method.ScrollingMovementMethod
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -35,7 +36,7 @@ class ChipOverlay(private val context: Context, private val wm: WindowManager) {
      */
     fun show(
         message: String?, actions: List<ChipAction>, anchorX: Int, anchorY: Int, bubbleSizePx: Int, timeoutMs: Long,
-        screen: Screen? = null, field: Area? = null,
+        screen: Screen? = null, field: Area? = null, liveCaption: Boolean = false,
     ) {
         hide()
         val row = LinearLayout(context).apply {
@@ -55,6 +56,16 @@ class ChipOverlay(private val context: Context, private val wm: WindowManager) {
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
                 maxWidth = px(220)
                 setPadding(0, 0, px(8), 0)
+                if (liveCaption) {
+                    setLines(5)
+                    gravity = Gravity.TOP
+                    movementMethod = ScrollingMovementMethod()
+                    // Keep the complete transcript scrollable and follow the latest words.
+                    post {
+                        val visibleHeight = height - compoundPaddingTop - compoundPaddingBottom
+                        scrollTo(0, (layout.height - visibleHeight).coerceAtLeast(0))
+                    }
+                }
             })
         }
         for (a in actions) {
