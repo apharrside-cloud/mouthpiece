@@ -25,8 +25,9 @@ android {
         buildConfigField("String", "OWNER_TERMS", if (share) "\"\"" else "\"$ownerTerms\"")
         minSdk = 31
         targetSdk = 35
-        versionCode = 19
-        versionName = "0.4.9"
+        // The release workflow passes -PpvVersionName/-PpvVersionCode (computed from the latest tag), so contributors never edit these.
+        versionCode = (project.findProperty("pvVersionCode") as String?)?.toInt() ?: 19
+        versionName = (project.findProperty("pvVersionName") as String?) ?: "0.4.9"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild {
@@ -46,9 +47,16 @@ android {
     }
 
     // Release signing: credentials live OUTSIDE the repo in ~/.pharr-voice/keystore.properties.
+    // CI (GitHub Actions) supplies the same values through PV_KEYSTORE_FILE / PV_KEYSTORE_PASSWORD / PV_KEY_ALIAS / PV_KEY_PASSWORD.
     val keystoreProps = Properties().apply {
         val f = File(System.getProperty("user.home"), ".pharr-voice/keystore.properties")
         if (f.isFile) f.inputStream().use { load(it) }
+        System.getenv("PV_KEYSTORE_FILE")?.let { path ->
+            setProperty("storeFile", path)
+            setProperty("storePassword", System.getenv("PV_KEYSTORE_PASSWORD") ?: "")
+            setProperty("keyAlias", System.getenv("PV_KEY_ALIAS") ?: "")
+            setProperty("keyPassword", System.getenv("PV_KEY_PASSWORD") ?: "")
+        }
     }
     signingConfigs {
         if (keystoreProps.isNotEmpty()) {
