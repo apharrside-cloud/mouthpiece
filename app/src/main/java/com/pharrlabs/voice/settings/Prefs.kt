@@ -83,6 +83,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("bubble_left", false)
         set(v) = sp.edit().putBoolean("bubble_left", v).apply()
 
+    /** True parks the bubble in the bottom-left corner of the screen (by the navigation bar) instead of by the field. */
+    var bubbleCorner: Boolean
+        get() = sp.getBoolean("bubble_corner", false)
+        set(v) = sp.edit().putBoolean("bubble_corner", v).apply()
+
     /** Default closing-period behavior; individual apps can override it. */
     var periodMode: PeriodMode
         get() = runCatching { PeriodMode.valueOf(sp.getString("period_mode", null) ?: "Auto") }.getOrDefault(PeriodMode.Auto)
@@ -228,7 +233,7 @@ class Prefs(context: Context) {
 
     companion object {
         val BACKUP_KEYS = setOf(
-            "model", "bubble_size", "bubble_shape", "bubble_icon", "bubble_color", "bubble_left", "period_mode", "smart_edit", "voice_edit", "interaction", "auto_stop_ms",
+            "model", "bubble_size", "bubble_shape", "bubble_icon", "bubble_color", "bubble_left", "bubble_corner", "period_mode", "smart_edit", "voice_edit", "interaction", "auto_stop_ms",
             "streaming", "live_caption", "undo_chip", "bubble_off_x", "bubble_off_y", "idle_opacity", "hidden_apps",
             "auto_learn", "format_numbers", "update_check", "theme_mode", "default_style", "app_rules", "dictionary", "dictionary_seeded", "history_enabled",
         )

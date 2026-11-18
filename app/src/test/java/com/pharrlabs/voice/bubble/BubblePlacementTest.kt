@@ -29,6 +29,34 @@ class BubblePlacementTest {
         assertEquals(emptyL.x, typedL.x)
     }
 
+    @Test fun cornerSitsAtTheBottomLeftOfTheScreenNotTheField() {
+        val s = Screen(width = 1344, statusBar = 100, keyboardTop = 1500, bottom = 2992)
+        val a = BubblePlacement.place(field, s, size, margin, left = false, corner = true)
+        val b = BubblePlacement.place(FieldBox(300, 400, 900), s, size, margin, left = false, corner = true)
+        assertEquals(Pos(16, 2992 - 150 - 16), a)
+        assertEquals(a, b)
+    }
+
+    @Test fun cornerIgnoresTheLeftRightChoiceAndNoKeyboard() {
+        val s = Screen(width = 1344, statusBar = 100, keyboardTop = 2992, bottom = 2992)
+        assertEquals(
+            BubblePlacement.place(field, s, size, margin, left = true, corner = true),
+            BubblePlacement.place(field, s, size, margin, left = false, corner = true),
+        )
+    }
+
+    @Test fun cornerOffsetStaysOnScreenAndBelowKeyboardIsAllowed() {
+        val s = Screen(width = 1344, statusBar = 100, keyboardTop = 1500, bottom = 2992)
+        val p = BubblePlacement.place(field, s, size, margin, left = false, offX = -50, offY = 5000, corner = true)
+        assertEquals(2992 - 150, p.y)
+        assertEquals(0, p.x)
+    }
+
+    @Test fun normalClampStillStopsAtTheKeyboard() {
+        val s = Screen(width = 1344, statusBar = 100, keyboardTop = 1500, bottom = 2992)
+        assertEquals(1500 - 150, BubblePlacement.clamp(Pos(50, 2900), s, size).y)
+    }
+
     @Test fun itStillFollowsTheFieldVertically() {
         val low = BubblePlacement.place(FieldBox(100, 1000, 1200), screen, size, margin, left = false)
         val high = BubblePlacement.place(FieldBox(100, 800, 1200), screen, size, margin, left = false)

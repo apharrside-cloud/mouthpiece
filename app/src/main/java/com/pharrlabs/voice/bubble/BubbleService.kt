@@ -337,7 +337,7 @@ class BubbleService : AccessibilityService() {
             .firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
             ?.let { w -> Rect().also { w.getBoundsInScreen(it) }.top }
             ?: screen.bottom
-        return Screen(screen.width(), statusBar, keyboardTop)
+        return Screen(screen.width(), statusBar, keyboardTop, bottom = screen.bottom)
     }
 
     /** The focused text field's bounds, so the Undo chip can stay off the text. */
@@ -356,7 +356,7 @@ class BubbleService : AccessibilityService() {
         val margin = (6 * resources.displayMetrics.density).toInt()
         return BubblePlacement.place(
             FieldBox(field.left, field.top, field.right), screenBox(), bubbleSizePx(), margin, prefs.bubbleLeft,
-            if (withOffset) prefs.bubbleOffsetX else 0, if (withOffset) prefs.bubbleOffsetY else 0,
+            if (withOffset) prefs.bubbleOffsetX else 0, if (withOffset) prefs.bubbleOffsetY else 0, prefs.bubbleCorner,
         )
     }
 
@@ -386,7 +386,7 @@ class BubbleService : AccessibilityService() {
             }
             is GestureEvent.DragMove -> if (dragging) {
                 val p = BubblePlacement.clamp(
-                    Pos(dragStart.x + event.dx.toInt(), dragStart.y + event.dy.toInt()), screenBox(), bubbleSizePx(),
+                    Pos(dragStart.x + event.dx.toInt(), dragStart.y + event.dy.toInt()), screenBox(), bubbleSizePx(), prefs.bubbleCorner,
                 )
                 lastX = p.x; lastY = p.y
                 wm.updateViewLayout(view, layoutParams(p.x, p.y))

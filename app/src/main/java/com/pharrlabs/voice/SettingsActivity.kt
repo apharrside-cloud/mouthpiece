@@ -435,13 +435,20 @@ class SettingsActivity : Activity() {
             }
         }
         card("Position") {
-            choice("Right of the field", !prefs.bubbleLeft) { prefs.bubbleLeft = false; prefs.bubbleOffsetX = 0; prefs.bubbleOffsetY = 0; render() }
-            choice("Left of the field", prefs.bubbleLeft) { prefs.bubbleLeft = true; prefs.bubbleOffsetX = 0; prefs.bubbleOffsetY = 0; render() }
+            choice("Right of the field", !prefs.bubbleCorner && !prefs.bubbleLeft) { setPosition(left = false, corner = false) }
+            choice("Left of the field", !prefs.bubbleCorner && prefs.bubbleLeft) { setPosition(left = true, corner = false) }
+            choice("Bottom-left corner (by the navigation bar)", prefs.bubbleCorner) { setPosition(left = prefs.bubbleLeft, corner = true) }
             text("You can also drag the bubble anywhere; it remembers where you put it.")
             if (prefs.bubbleOffsetX != 0 || prefs.bubbleOffsetY != 0) {
                 button("Reset dragged position") { prefs.bubbleOffsetX = 0; prefs.bubbleOffsetY = 0; render() }
             }
         }
+    }
+
+    private fun setPosition(left: Boolean, corner: Boolean) {
+        prefs.bubbleLeft = left; prefs.bubbleCorner = corner
+        prefs.bubbleOffsetX = 0; prefs.bubbleOffsetY = 0
+        render()
     }
 
     private fun words() {

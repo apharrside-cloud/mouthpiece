@@ -25,8 +25,8 @@ android {
         buildConfigField("String", "OWNER_TERMS", if (share) "\"\"" else "\"$ownerTerms\"")
         minSdk = 31
         targetSdk = 35
-        versionCode = 17
-        versionName = "0.4.7"
+        versionCode = 18
+        versionName = "0.4.8"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild {
