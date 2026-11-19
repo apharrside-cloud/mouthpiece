@@ -34,6 +34,14 @@ object UpdateCheck {
     /** True when it has been long enough since [lastCheck] (also when the clock moved backwards). */
     fun due(lastCheck: Long, now: Long): Boolean = lastCheck > now || now - lastCheck >= INTERVAL_MS
 
+    /** The sentence shown right under "Check now" after a manual check, so the result is visible without scrolling. */
+    fun manualMessage(info: UpdateInfo?, installed: String): String = when {
+        info == null -> "Couldn't reach the download site. Check your connection and try again."
+        isNewer(info.version, installed) ->
+            "Update available: Mouthpiece ${info.version}${if (info.sizeMb.isNotBlank()) " (${info.sizeMb} MB)" else ""}. Your settings and dictionary stay as they are."
+        else -> "✓ You're up to date. Mouthpiece $installed is the latest version."
+    }
+
     fun available(info: UpdateInfo, installed: String, skipped: String?): Boolean =
         isNewer(info.version, installed) && info.version != skipped
 }

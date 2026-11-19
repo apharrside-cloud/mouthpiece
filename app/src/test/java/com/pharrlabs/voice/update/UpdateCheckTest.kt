@@ -56,4 +56,12 @@ class UpdateCheckTest {
         assertFalse(UpdateCheck.available(i, "0.3.4", skipped = "0.4.0"))
         assertTrue(UpdateCheck.available(i.copy(version = "0.4.1"), "0.3.4", skipped = "0.4.0"))
     }
+
+    @Test fun manualMessageSaysWhatHappened() {
+        val newer = UpdateInfo("0.4.9", "6.8", "")
+        assertEquals(true, UpdateCheck.manualMessage(newer, "0.4.8").startsWith("Update available: Mouthpiece 0.4.9 (6.8 MB)"))
+        assertEquals(true, UpdateCheck.manualMessage(UpdateInfo("0.4.8", "", ""), "0.4.8").contains("up to date"))
+        assertEquals(true, UpdateCheck.manualMessage(null, "0.4.8").contains("Couldn't reach"))
+        assertEquals(false, UpdateCheck.manualMessage(UpdateInfo("0.4.9", "", ""), "0.4.8").contains("()"))
+    }
 }

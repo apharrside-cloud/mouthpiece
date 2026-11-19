@@ -192,13 +192,17 @@ class SettingsActivity : Activity() {
         if (!force && !(prefs.updateCheck && UpdateCheck.due(prefs.updateLastCheck, now))) return
         scope.launch {
             val info = UpdateFetcher.latest()
-            if (info == null) {
-                updateStatus = if (force) "Could not reach the download site." else null
-            } else {
+            if (info != null) {
                 prefs.updateLastCheck = System.currentTimeMillis()
                 prefs.updateFound = info.version
                 prefs.updateFoundSizeMb = info.sizeMb
-                updateStatus = if (UpdateCheck.isNewer(info.version, BuildConfig.VERSION_NAME)) null else "You have the latest version."
+            }
+            if (force) {
+                // Asking explicitly means "tell me what's out there": bring back a version skipped earlier and say the result in place.
+                if (info != null && UpdateCheck.isNewer(info.version, BuildConfig.VERSION_NAME)) prefs.updateSkipped = null
+                updateStatus = UpdateCheck.manualMessage(info, BuildConfig.VERSION_NAME)
+                val newer = info != null && UpdateCheck.isNewer(info.version, BuildConfig.VERSION_NAME)
+                toast(if (info == null) "Couldn't reach the download site" else if (newer) "Update available: ${info.version}" else "You're up to date")
             }
             render()
         }
@@ -313,7 +317,27 @@ class SettingsActivity : Activity() {
             text("Mouthpiece ${BuildConfig.VERSION_NAME}")
             switchRow("Check for updates", "Opening this screen looks at the download site's version file about twice a day. Nothing about you or your phone is sent.", prefs.updateCheck) { prefs.updateCheck = it }
             row { button("Check now") { updateStatus = "Checking…"; render(); maybeCheckForUpdate(force = true) } }
-            updateStatus?.let { text(it) }
+            val pending = foundUpdate()
+            val msg = updateStatus ?: pending?.let { UpdateCheck.manualMessage(it, BuildConfig.VERSION_NAME) }
+            if (msg != null) {
+                // Result lives right under the button in a tinted panel, so nobody has to scroll to the top to learn it.
+                addView(TextView(context).apply {
+                    text = msg; setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f); setTextColor(ink)
+                    background = GradientDrawable().apply { setColor(accentSoft); cornerRadius = dp(14).toFloat() }
+                    setPadding(dp(14), dp(12), dp(14), dp(12))
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
+                })
+            }
+            if (pending != null) {
+                row {
+                    button("Download") { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(UpdateFetcher.SITE))) }
+                    addView(TextView(context).apply {
+                        text = "Skip this version"; setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f); setTextColor(accent)
+                        minHeight = dp(48); gravity = Gravity.CENTER_VERTICAL; setPadding(dp(12), 0, dp(12), 0)
+                        setOnClickListener { prefs.updateSkipped = pending.version; updateStatus = null; render() }
+                    })
+                }
+            }
         }
 
         card("Appearance") {
