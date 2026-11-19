@@ -8,6 +8,7 @@ import json
 import os
 import re
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -24,6 +25,9 @@ ASSETS = {  # baked into the image next to index.html
     "/favicon-48.png": ("image/png", "public, max-age=3600"),
     "/og.png": ("image/png", "public, max-age=3600"),
 }
+FEEDBACK = os.path.join(DATA, "feedback.jsonl")  # one JSON object per line; the owner's sync job collects and clears it
+RATE = {}  # client -> recent submit times (memory only; no IPs are ever written to disk)
+RATE_MAX, RATE_WINDOW, MAX_BODY = 5, 3600, 8192
 SAFE_NAME = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
@@ -49,6 +53,38 @@ def bump_counter(name):
             json.dump(counts, f)
         os.replace(tmp, COUNTER)
         return counts["total"]
+
+
+def clean(v, limit):
+    return v.strip()[:limit] if isinstance(v, str) else ""
+
+
+def rate_ok(client, now=None):
+    now = now or time.time()
+    with LOCK:
+        recent = [t for t in RATE.get(client, []) if now - t < RATE_WINDOW]
+        if len(recent) >= RATE_MAX:
+            RATE[client] = recent
+            return False
+        RATE[client] = recent + [now]
+        if len(RATE) > 5000:  # bound memory
+            RATE.clear()
+        return True
+
+
+def save_feedback(payload):
+    """Validate one feedback submission and append it. Returns (status, message)."""
+    kind = payload.get("type") if isinstance(payload, dict) else None
+    msg = clean(payload.get("message"), 4000) if isinstance(payload, dict) else ""
+    if kind not in ("problem", "idea") or not msg:
+        return 400, "Missing type or message"
+    rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "type": kind, "message": msg,
+           "contact": clean(payload.get("contact"), 200), "version": clean(payload.get("version"), 40),
+           "android": clean(payload.get("android"), 40), "device": clean(payload.get("device"), 80)}
+    with LOCK:
+        with open(FEEDBACK, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + chr(10))
+    return 200, "ok"
 
 
 def render_index():
@@ -134,7 +170,24 @@ class Handler(BaseHTTPRequestHandler):
         return self.send_bytes(404, b"Not found", "text/plain; charset=utf-8")
 
     def do_POST(self):
-        self.send_bytes(405, b"Method not allowed", "text/plain; charset=utf-8", {"Allow": "GET, HEAD"})
+        path = self.path.split("?", 1)[0]
+        if path != "/feedback":
+            return self.send_bytes(405, b"Method not allowed", "text/plain; charset=utf-8", {"Allow": "GET, HEAD"})
+        try:
+            n = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            n = -1
+        if n <= 0 or n > MAX_BODY:
+            return self.send_bytes(413 if n > MAX_BODY else 400, b"Bad size", "text/plain; charset=utf-8")
+        raw = self.rfile.read(n)
+        client = self.headers.get("CF-Connecting-IP") or self.client_address[0]
+        if not rate_ok(client):
+            return self.send_bytes(429, b"Too many reports, try again later", "text/plain; charset=utf-8")
+        try:
+            status, message = save_feedback(json.loads(raw.decode("utf-8")))
+        except ValueError:
+            status, message = 400, "Bad JSON"
+        return self.send_bytes(status, json.dumps({"ok": status == 200, "message": message}).encode(), "application/json")
 
 
 if __name__ == "__main__":

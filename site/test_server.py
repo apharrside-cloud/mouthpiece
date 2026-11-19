@@ -26,6 +26,7 @@ class SiteTest(unittest.TestCase):
                        "sha256": hashlib.sha256(APK).hexdigest(), "date": "2026-11-16"}, f)
         server.PUBLIC = os.path.join(DATA, "public")
         server.COUNTER = os.path.join(DATA, "downloads.json")
+        server.FEEDBACK = os.path.join(DATA, "feedback.jsonl")
         cls.httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
         cls.port = cls.httpd.server_address[1]
         threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
@@ -86,6 +87,38 @@ class SiteTest(unittest.TestCase):
         c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
         c.request("POST", "/", body=b"x")
         self.assertEqual(c.getresponse().status, 405)
+
+    def post(self, body, path="/feedback"):
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        c.request("POST", path, body=body if isinstance(body, bytes) else json.dumps(body).encode(), headers={"CF-Connecting-IP": self.ip})
+        r = c.getresponse()
+        r.read()
+        return r.status
+
+    ip = "203.0.113.1"
+
+    def test_feedback_is_stored_and_validated(self):
+        self.ip = "203.0.113.10"
+        ok = {"type": "idea", "message": "Add a dark bubble", "contact": "a@b.c", "version": "0.4.9", "android": "17", "device": "Pixel 9"}
+        self.assertEqual(self.post(ok), 200)
+        line = open(server.FEEDBACK, encoding="utf-8").read().strip().splitlines()[-1]
+        rec = json.loads(line)
+        self.assertEqual((rec["type"], rec["message"], rec["version"]), ("idea", "Add a dark bubble", "0.4.9"))
+        self.assertNotIn("203.0.113.10", line)  # no IPs on disk
+        self.assertEqual(self.post({"type": "idea", "message": "   "}), 400)
+        self.assertEqual(self.post({"type": "spam", "message": "x"}), 400)
+        self.assertEqual(self.post(b"not json"), 400)
+        self.assertEqual(self.post(b"x" * 9000), 413)
+
+    def test_feedback_is_rate_limited_per_client(self):
+        self.ip = "203.0.113.20"
+        codes = [self.post({"type": "problem", "message": "m%d" % i}) for i in range(7)]
+        self.assertEqual(codes, [200] * 5 + [429] * 2)
+        self.ip = "203.0.113.21"
+        self.assertEqual(self.post({"type": "problem", "message": "other client"}), 200)
+
+    def test_other_post_paths_stay_rejected(self):
+        self.assertEqual(self.post(b"x", "/download"), 405)
 
     def test_health_and_version(self):
         self.assertEqual(self.get("/healthz")[2], b"ok")

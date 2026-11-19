@@ -31,6 +31,10 @@ import com.pharrlabs.voice.bubble.BubbleIcon
 import com.pharrlabs.voice.bubble.BubbleTint
 import com.pharrlabs.voice.bubble.BubbleService
 import com.pharrlabs.voice.bubble.BubbleVisibility
+import com.pharrlabs.voice.feedback.Feedback
+import com.pharrlabs.voice.feedback.FeedbackKind
+import com.pharrlabs.voice.feedback.FeedbackSender
+import com.pharrlabs.voice.feedback.SendResult
 import com.pharrlabs.voice.update.UpdateCheck
 import com.pharrlabs.voice.update.UpdateFetcher
 import com.pharrlabs.voice.update.UpdateInfo
@@ -340,6 +344,12 @@ class SettingsActivity : Activity() {
             }
         }
 
+        card("Feedback") {
+            text("Found a bug or want a feature? Tell us. Only what you type here, plus the app version and your phone model, is sent.")
+            row { button(FeedbackKind.PROBLEM.title) { showFeedback(FeedbackKind.PROBLEM) } }
+            row { button(FeedbackKind.IDEA.title) { showFeedback(FeedbackKind.IDEA) } }
+        }
+
         card("Appearance") {
             ThemeMode.values().forEach { m -> choice(m.label, prefs.themeMode == m) { prefs.themeMode = m; render() } }
         }
@@ -645,6 +655,60 @@ class SettingsActivity : Activity() {
     // ---- view helpers --------------------------------------------------------------------
 
     private fun toast(t: String) = Toast.makeText(this, t, Toast.LENGTH_SHORT).show()
+
+    /** A small form that posts a problem report or feature idea to the download site (no account needed). */
+    private fun showFeedback(kind: FeedbackKind) {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(18), dp(20), dp(12))
+            background = GradientDrawable().apply { setColor(surface); cornerRadius = dp(24).toFloat() }
+        }
+        box.addView(TextView(this).apply {
+            text = kind.title; setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f); setTextColor(ink); typeface = Typeface.DEFAULT_BOLD
+        })
+        box.addView(styledText("Only what you type here, plus the app version and your phone model, is sent."))
+        fun field(hintText: String, multi: Boolean) = EditText(this).apply {
+            hint = hintText; setHintTextColor(muted); setTextColor(ink); setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            inputType = InputType.TYPE_CLASS_TEXT or (if (multi) InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES else 0)
+            if (multi) { minLines = 4; gravity = Gravity.TOP or Gravity.START }
+            backgroundTintList = android.content.res.ColorStateList.valueOf(accent)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(10) }
+        }
+        val message = field(kind.hint, true)
+        val contact = field("Email or phone (optional, only if you want a reply)", false)
+        box.addView(message); box.addView(contact)
+        val dialog = android.app.AlertDialog.Builder(this).setView(box).create()
+        var sending = false
+        val send = styledButton("Send") {}
+        send.setOnClickListener {
+            if (sending) return@setOnClickListener
+            val json = Feedback.payload(
+                kind, message.text.toString(), contact.text.toString(), BuildConfig.VERSION_NAME,
+                android.os.Build.VERSION.RELEASE, android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL,
+            )
+            if (json == null) { toast(Feedback.message(SendResult.EMPTY)); return@setOnClickListener }
+            sending = true; send.text = "Sending..."
+            scope.launch {
+                val r = FeedbackSender.send(json)
+                sending = false; send.text = "Send"
+                toast(Feedback.message(r))
+                if (r == SendResult.SENT) dialog.dismiss()
+            }
+        }
+        val cancel = TextView(this).apply {
+            text = "Cancel"; setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f); setTextColor(accent)
+            minHeight = dp(48); gravity = Gravity.CENTER_VERTICAL; setPadding(dp(12), 0, dp(16), 0)
+            setOnClickListener { dialog.dismiss() }
+        }
+        box.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            addView(cancel); addView(send)
+        })
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        dialog.show()
+    }
+
 
     private fun appName(pkg: String): String = runCatching {
         packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
