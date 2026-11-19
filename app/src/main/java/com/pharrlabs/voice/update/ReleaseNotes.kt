@@ -7,6 +7,12 @@ object ReleaseNotes {
     const val LATEST_URL = "https://github.com/apharrside-cloud/mouthpiece/releases/latest"
 
     val releases = listOf(
+        ReleaseNote("0.5.2", listOf(
+            "What’s new now lists the 0.5.1 changes.",
+        )),
+        ReleaseNote("0.5.1", listOf(
+            "Dictation no longer starts with the word “Message” in Telegram, or “Compose email” in Gmail. Placeholder text in a field is now treated as empty.",
+        )),
         ReleaseNote("0.5.0", listOf(
             "A hamburger menu with page tiles and a highlight for the current page.",
             "Clear speech-model status, Download & use, and setup guidance when no model is ready.",
