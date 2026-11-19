@@ -51,9 +51,7 @@ jobs:
           PA=$((PA + 1))
           # A contributor may still bump versionName by hand; honour it when it is newer than last tag + 1.
           FILEV=$(grep -o 'pvVersionName") as String?) ?: "[0-9.]*"' app/build.gradle.kts | grep -o '[0-9][0-9.]*' | tail -n1 || true)
-          if [ -n "$FILEV" ] && [ "$(printf '%s
-%s
-' "$MA.$MI.$PA" "$FILEV" | sort -V | tail -n1)" = "$FILEV" ]; then
+          if [ -n "$FILEV" ] && [ "$({ echo "$MA.$MI.$PA"; echo "$FILEV"; } | sort -V | tail -n1)" = "$FILEV" ]; then
             IFS=. read -r MA MI PA <<< "$FILEV"
           fi
           echo "skip=false" >> "$GITHUB_OUTPUT"
