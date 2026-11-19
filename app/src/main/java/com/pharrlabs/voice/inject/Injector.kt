@@ -26,8 +26,8 @@ class Injector(private val context: Context) {
     fun inject(node: AccessibilityNodeInfo, text: String): InjectResult {
         lastInsert = null
         node.refresh()
-        // Some web editors (Gmail compose body) expose their placeholder as real text and never set the hint flag.
-        val hint = node.isShowingHintText || node.text?.toString() in KNOWN_PLACEHOLDERS
+        // Some apps (Telegram "Message", Gmail "Compose email") expose their placeholder as real text and never set the hint flag.
+        val hint = Placeholders.isPlaceholder(node.text?.toString(), node.hintText?.toString(), node.isShowingHintText)
         val existing = if (hint) "" else node.text?.toString().orEmpty()
         val selStart = if (hint) 0 else node.textSelectionStart
         val selEnd = if (hint) 0 else node.textSelectionEnd
@@ -71,9 +71,5 @@ class Injector(private val context: Context) {
             }
         }, 500)
         return InjectResult.Pasted
-    }
-
-    private companion object {
-        val KNOWN_PLACEHOLDERS = setOf("Compose email")
     }
 }
