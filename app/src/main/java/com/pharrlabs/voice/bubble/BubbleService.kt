@@ -17,6 +17,7 @@ import android.widget.Toast
 import com.pharrlabs.voice.BuildConfig
 import com.pharrlabs.voice.asr.ModelManager
 import com.pharrlabs.voice.asr.ModelMissing
+import com.pharrlabs.voice.asr.ModelSelection
 import com.pharrlabs.voice.asr.StreamingSession
 import com.pharrlabs.voice.audio.SilenceTrimmer
 import com.pharrlabs.voice.asr.WhisperCppEngine
@@ -549,6 +550,20 @@ class BubbleService : AccessibilityService() {
     }
 
     private fun onBubbleTap() {
+        if (machine.state == BubbleState.Idle) {
+            val models = ModelManager(getExternalFilesDir(null)!!)
+            val active = ModelSelection.resolve(prefs.modelName, Prefs.MODELS.map { it.first }.filter(models::isInstalled))
+            if (active == null) {
+                holdMode = false
+                Toast.makeText(this, "Download a speech model to start dictating.", Toast.LENGTH_LONG).show()
+                startActivity(android.content.Intent(this, com.pharrlabs.voice.SettingsActivity::class.java).apply {
+                    action = com.pharrlabs.voice.SettingsActivity.ACTION_SELECT_MODEL
+                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                })
+                return
+            }
+            prefs.modelName = active
+        }
         when (machine.onTap()) {
             BubbleAction.StartRecording -> {
                 chip.hide()

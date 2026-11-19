@@ -14,7 +14,7 @@ device and it works in airplane mode. No account, no ads, no subscription.
    - **Grant microphone permission.**
    - **Allow restricted settings** (sideloaded apps only): tap Mouthpiece once in Accessibility (it says "Restricted setting"), then App info, the top-right menu (it only appears after that tap), then **Allow restricted settings**.
    - **Enable the service**: Accessibility, Installed apps, Mouthpiece, on.
-   - **Download a speech model**: one-time download (32 MB to 575 MB, your choice), SHA-256 verified. Everything after that is offline.
+   - **Download a speech model**: choose **Download & use** under Home > Speech models (32 MB to 575 MB, your choice), SHA-256 verified. The downloaded model is selected automatically. Everything after that is offline.
    - **Battery exemption** (recommended) so Android does not stop the service.
 3. Tap a text field in any app. An orange bubble appears next to it.
 
@@ -22,6 +22,8 @@ Bubble colors: orange idle, teal listening, violet transcribing, crimson error (
 The bubble never appears on password fields or inside Mouthpiece itself.
 
 ## Using it
+- Open the top-left page menu to reach Home, Dictation, Bubble, Words, Apps, History and What’s new. Home shows which speech model is in use and which are downloaded. If no model is ready, tapping the bubble opens setup before recording.
+- Home > Updates offers automatic checks about every 12 hours, subject to Android's background scheduling. Enable Update notifications and allow Android's notification permission to receive one alert per available version. Tapping an alert opens What’s new, which also keeps release highlights available offline. Release highlights are maintained in `app/src/main/java/com/pharrlabs/voice/update/ReleaseNotes.kt`.
 - **Tap** the bubble to start and tap again to finish (it keeps listening through pauses; an optional stop-on-silence timer is in Settings > Dictation). **Press and hold** to talk and release to finish.
 - Text is transcribed phrase by phrase while you talk, so there is little waiting after you stop. A five-line live caption next to the bubble follows the latest words; scroll it to review earlier text.
 - Cleanup: fillers ("um", "uh") removed, sentences capitalized, punctuation added. One-line fields (subject, URL bar, search) get no trailing period; prose fields do.

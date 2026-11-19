@@ -19,7 +19,8 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
-import android.widget.HorizontalScrollView
+import android.widget.ImageButton
+import android.widget.PopupWindow
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -38,9 +39,13 @@ import com.pharrlabs.voice.feedback.SendResult
 import com.pharrlabs.voice.update.UpdateCheck
 import com.pharrlabs.voice.update.UpdateFetcher
 import com.pharrlabs.voice.update.UpdateInfo
+import com.pharrlabs.voice.update.UpdateJobService
+import com.pharrlabs.voice.update.UpdateNotifier
+import com.pharrlabs.voice.update.ReleaseNotes
 import com.pharrlabs.voice.bubble.BubbleStyle
 import com.pharrlabs.voice.bubble.BubbleView
 import com.pharrlabs.voice.asr.ModelManager
+import com.pharrlabs.voice.asr.ModelSelection
 import com.pharrlabs.voice.clean.PeriodMode
 import com.pharrlabs.voice.clean.Style
 import com.pharrlabs.voice.settings.AppRule
@@ -62,22 +67,26 @@ import java.text.DateFormat
 import java.util.Date
 
 /**
- * Mouthpiece settings: a tab bar (Home, Dictation, Bubble, Words, Apps, History) over card-style sections.
+ * Mouthpiece settings: a page menu over card-style sections.
  * Re-renders on resume so the setup checklist reflects what the user just did in system settings.
  */
 class SettingsActivity : Activity() {
-    private enum class Tab(val label: String) { Home("Home"), Dictation("Dictation"), Bubble("Bubble"), Words("Words"), Apps("Apps"), History("History") }
+    private enum class Tab(val label: String) { Home("Home"), Dictation("Dictation"), Bubble("Bubble"), Words("Words"), Apps("Apps"), History("History"), WhatsNew("What’s new") }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var prefs: Prefs
     private lateinit var models: ModelManager
-    private lateinit var tabBar: LinearLayout
+    private lateinit var menuButton: ImageButton
+    private lateinit var pageLabel: TextView
+    private lateinit var header: LinearLayout
+    private var pageMenu: PopupWindow? = null
     private lateinit var content: LinearLayout
     private lateinit var scroll: ScrollView
 
     private var tab = Tab.Home
     private var downloadJob: Job? = null
     private var downloadStatus: String? = null
+    private var downloadingModel: String? = null
     private var draftSpoken = ""
     private var draftWritten = ""
     private var draftPackage = ""
@@ -90,7 +99,6 @@ class SettingsActivity : Activity() {
     private val muted get() = pal.muted
     private lateinit var page: LinearLayout
     private lateinit var titleView: TextView
-    private lateinit var tabScroll: HorizontalScrollView
 
     /** Picks light or dark colors (own setting, or the phone's), and paints the page and system bars to match. */
     private fun applyTheme() {
@@ -100,6 +108,8 @@ class SettingsActivity : Activity() {
         page.setBackgroundColor(pal.bg)
         window.decorView.setBackgroundColor(pal.bg)
         titleView.setTextColor(pal.ink)
+        pageLabel.setTextColor(pal.muted)
+        menuButton.imageTintList = android.content.res.ColorStateList.valueOf(pal.ink)
         val lightBars = android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
             android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
         window.insetsController?.setSystemBarsAppearance(if (pal.bg == Palettes.light.bg) lightBars else 0, lightBars)
@@ -117,6 +127,7 @@ class SettingsActivity : Activity() {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
         models = ModelManager(getExternalFilesDir(null)!!)
+        tab = savedInstanceState?.getString("page")?.let { name -> Tab.values().find { it.name == name } } ?: Tab.Home
         page = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         titleView = TextView(this).apply {
             text = "Mouthpiece"; setTextSize(TypedValue.COMPLEX_UNIT_SP, 26f)
@@ -130,16 +141,28 @@ class SettingsActivity : Activity() {
             }
             clipToOutline = true
         }
-        val header = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(20), 0, dp(20), 0)
-            addView(logo, LinearLayout.LayoutParams(dp(40), dp(40)))
+        header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), dp(8), dp(16), dp(8))
         }
-        titleView.setPadding(dp(12), dp(16), 0, dp(8))
-        header.addView(titleView)
+        menuButton = ImageButton(this).apply {
+            setImageResource(R.drawable.ic_menu)
+            contentDescription = "Open page menu"
+            background = android.graphics.drawable.RippleDrawable(
+                android.content.res.ColorStateList.valueOf(0x22000000), null, null,
+            )
+            setOnClickListener { showPageMenu() }
+        }
+        header.addView(menuButton, LinearLayout.LayoutParams(dp(48), dp(48)))
+        header.addView(logo, LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginStart = dp(8) })
+        titleView.setPadding(0, 0, 0, 0)
+        pageLabel = TextView(this).apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f) }
+        header.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), 0, 0, 0)
+            addView(titleView)
+            addView(pageLabel)
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         page.addView(header)
-        tabBar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(12), 0, dp(12), dp(8)) }
-        tabScroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(tabBar) }
-        page.addView(tabScroll)
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(4), dp(16), dp(32)) }
         scroll = ScrollView(this).apply { addView(content) }
         page.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
@@ -186,20 +209,63 @@ class SettingsActivity : Activity() {
         splash.postDelayed({ dismiss() }, SplashPolicy.SHOW_MS)
     }
 
-    override fun onResume() { super.onResume(); render(); maybeCheckForUpdate(force = false) }
+    override fun onResume() {
+        super.onResume()
+        selectAvailableModel()
+        if (intent.action == ACTION_SELECT_MODEL) {
+            tab = Tab.Home
+            scroll.scrollTo(0, 0)
+            intent.action = null
+        }
+        if (intent.action == ACTION_SHOW_UPDATES) {
+            tab = Tab.WhatsNew
+            scroll.scrollTo(0, 0)
+            intent.action = null
+        }
+        UpdateJobService.schedule(this)
+        render()
+        maybeCheckForUpdate(force = false)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.action == ACTION_SELECT_MODEL) { tab = Tab.Home; scroll.scrollTo(0, 0); render() }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("page", tab.name)
+        super.onSaveInstanceState(outState)
+    }
+
+    override fun onPause() {
+        pageMenu?.dismiss()
+        super.onPause()
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        pageMenu?.dismiss()
+        render()
+    }
+
+    private fun selectAvailableModel() {
+        ModelSelection.resolve(prefs.modelName, Prefs.MODELS.map { it.first }.filter(models::isInstalled))?.let { prefs.modelName = it }
+    }
 
     private var updateStatus: String? = null
+    private var updateJob: Job? = null
 
-    /** Reads the site's version file at most twice a day (or on demand) and refreshes the banner. */
+    /** Reads the site's version file at most twice a day (or on demand) and refreshes the update controls. */
     private fun maybeCheckForUpdate(force: Boolean) {
         val now = System.currentTimeMillis()
+        if (updateJob?.isActive == true) return
         if (!force && !(prefs.updateCheck && UpdateCheck.due(prefs.updateLastCheck, now))) return
-        scope.launch {
+        if (force) { updateStatus = "Checking…"; render() }
+        updateJob = scope.launch {
             val info = UpdateFetcher.latest()
             if (info != null) {
-                prefs.updateLastCheck = System.currentTimeMillis()
-                prefs.updateFound = info.version
-                prefs.updateFoundSizeMb = info.sizeMb
+                UpdateNotifier.record(this@SettingsActivity, info, notify = !force)
             }
             if (force) {
                 // Asking explicitly means "tell me what's out there": bring back a version skipped earlier and say the result in place.
@@ -208,6 +274,7 @@ class SettingsActivity : Activity() {
                 val newer = info != null && UpdateCheck.isNewer(info.version, BuildConfig.VERSION_NAME)
                 toast(if (info == null) "Couldn't reach the download site" else if (newer) "Update available: ${info.version}" else "You're up to date")
             }
+            updateJob = null
             render()
         }
     }
@@ -217,7 +284,31 @@ class SettingsActivity : Activity() {
 
     override fun onDestroy() { scope.cancel(); super.onDestroy() }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) = render()
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_NOTIFICATIONS) {
+            prefs.updateNotifications = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+            if (prefs.updateNotifications) notifyAboutKnownUpdate()
+        }
+        render()
+    }
+
+    private fun notifyAboutKnownUpdate() {
+        foundUpdate()?.let { UpdateNotifier.record(this, it, notify = true) }
+    }
+
+    private fun enableUpdateNotifications(enabled: Boolean) {
+        if (!enabled) {
+            prefs.updateNotifications = false
+            UpdateNotifier.cancel(this)
+        } else if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIFICATIONS)
+        } else {
+            prefs.updateNotifications = true
+            notifyAboutKnownUpdate()
+        }
+        render()
+    }
 
     // ---- state ---------------------------------------------------------------------------
 
@@ -235,7 +326,7 @@ class SettingsActivity : Activity() {
     private fun render() {
         val y = scroll.scrollY
         applyTheme()
-        renderTabs()
+        pageLabel.text = tab.label
         content.removeAllViews()
         when (tab) {
             Tab.Home -> home()
@@ -244,39 +335,74 @@ class SettingsActivity : Activity() {
             Tab.Words -> words()
             Tab.Apps -> apps()
             Tab.History -> history()
+            Tab.WhatsNew -> whatsNew()
         }
         scroll.post { scroll.scrollTo(0, y) }
     }
 
-    private fun renderTabs() {
-        tabBar.removeAllViews()
+    private fun showPageMenu() {
+        pageMenu?.let { it.dismiss(); return }
+        val tiles = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+        }
+        val menu = PopupWindow(this).apply {
+            contentView = ScrollView(this@SettingsActivity).apply { addView(tiles) }
+            width = page.width - page.paddingLeft - page.paddingRight - dp(32)
+            val location = IntArray(2).also(header::getLocationOnScreen)
+            val availableHeight = window.decorView.height - page.paddingBottom - location[1] - header.height - dp(8)
+            height = minOf(dp(Tab.values().size * 56 + 12), availableHeight.coerceAtLeast(dp(48)))
+            isFocusable = true
+            isOutsideTouchable = true
+            elevation = dp(8).toFloat()
+            setBackgroundDrawable(GradientDrawable().apply {
+                setColor(pal.bg)
+                cornerRadius = dp(18).toFloat()
+                setStroke(dp(1), pal.outline)
+            })
+            setOnDismissListener {
+                pageMenu = null
+                menuButton.setImageResource(R.drawable.ic_menu)
+                menuButton.contentDescription = "Open page menu"
+            }
+        }
         Tab.values().forEach { t ->
-            tabBar.addView(TextView(this).apply {
+            val current = t == tab
+            tiles.addView(TextView(this).apply {
                 text = t.label
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-                setPadding(dp(16), dp(8), dp(16), dp(8))
-                val on = t == tab
-                setTextColor(if (on) accent else muted)
-                typeface = if (on) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
-                background = pill(if (on) accentSoft else Color.TRANSPARENT)
-                setOnClickListener { tab = t; render() }
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(6) }
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+                setTextColor(ink)
+                typeface = if (current) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+                gravity = Gravity.CENTER_VERTICAL
+                minHeight = dp(52)
+                setPadding(dp(18), dp(12), dp(18), dp(12))
+                background = android.graphics.drawable.RippleDrawable(
+                    android.content.res.ColorStateList.valueOf(accentSoft),
+                    GradientDrawable().apply {
+                        setColor(if (current) accentSoft else surface)
+                        cornerRadius = dp(10).toFloat()
+                    }, null,
+                )
+                isSelected = current
+                isFocusable = true
+                setOnClickListener {
+                    menu.dismiss()
+                    tab = t
+                    scroll.scrollTo(0, 0)
+                    render()
+                }
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                if (t != Tab.Home) topMargin = dp(4)
             })
         }
-        tabBar.post { tabBar.getChildAt(tab.ordinal)?.let { tabScroll.smoothScrollTo((it.left - dp(24)).coerceAtLeast(0), 0) } }
+        pageMenu = menu
+        menuButton.setImageResource(R.drawable.ic_close)
+        menuButton.contentDescription = "Close page menu"
+        menu.showAsDropDown(header, dp(16), 0, Gravity.START)
     }
 
     private fun home() {
         bubbleStatusCard()
-        foundUpdate()?.let { u ->
-            card("Update available") {
-                text("Mouthpiece ${u.version} is ready${if (u.sizeMb.isNotBlank()) " (${u.sizeMb} MB)" else ""}. You have ${BuildConfig.VERSION_NAME}. Your settings and dictionary stay as they are.")
-                row {
-                    button("Download") { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(UpdateFetcher.SITE))) }
-                    button("Skip this version") { prefs.updateSkipped = u.version; render() }
-                }
-            }
-        }
         val missing = OnboardingChecks.missing(micGranted(), serviceEnabled(), models.isInstalled(prefs.modelName), batteryExempt())
         if (missing.isEmpty()) {
             card("Ready") {
@@ -286,6 +412,8 @@ class SettingsActivity : Activity() {
             card("Finish setup") { missing.forEach { stepRow(this, it) } }
         }
 
+        speechModels()
+
         card("Try it here") {
             text("Tap this box, then use the bubble to see how dictation behaves.")
             addView(EditText(context).apply {
@@ -294,37 +422,30 @@ class SettingsActivity : Activity() {
             }.themed())
         }
 
-        card("Speech model") {
-            text("Bigger models make fewer mistakes but take longer after you stop talking and need more memory. Each downloads once and runs on your phone. ${com.pharrlabs.voice.asr.ModelInfo.RUNTIME}")
-            Prefs.MODELS.forEach { (name, label) ->
-                val installed = models.isInstalled(name)
-                choice("$label${if (installed) "" else " (not downloaded)"}", prefs.modelName == name) {
-                    prefs.modelName = name; downloadStatus = null; render()
-                }
-                com.pharrlabs.voice.asr.ModelInfo.of(name)?.let { info ->
-                    addView(styledText(info.line()).apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f); alpha = 0.7f; setPadding(dp(34), 0, 0, dp(4)) })
-                }
-                // The model in use can't be removed; switch to another one first.
-                if (installed && prefs.modelName != name) {
-                    row {
-                        button("Remove download") {
-                            val mb = models.remove(name) / 1_000_000
-                            toast("Removed, freed $mb MB")
-                            render()
-                        }
-                    }
-                }
-            }
-        }
-
         card("Updates") {
             text("Mouthpiece ${BuildConfig.VERSION_NAME}")
-            switchRow("Check for updates", "Opening this screen looks at the download site's version file about twice a day. Nothing about you or your phone is sent.", prefs.updateCheck) { prefs.updateCheck = it }
-            row { button("Check now") { updateStatus = "Checking…"; render(); maybeCheckForUpdate(force = true) } }
-            val pending = foundUpdate()
-            val msg = updateStatus ?: pending?.let { UpdateCheck.manualMessage(it, BuildConfig.VERSION_NAME) }
+            switchRow("Automatic update checks", "Check about every 12 hours in the background and when settings opens. Android may delay checks to save battery. Nothing about you or your phone is sent.", prefs.updateCheck) {
+                prefs.updateCheck = it
+                UpdateJobService.schedule(this@SettingsActivity)
+            }
+            switchRow("Update notifications", "Let this phone alert you when a new version is available. Turn on automatic checks to receive background alerts.", prefs.updateNotifications) { enableUpdateNotifications(it) }
+            if (!UpdateNotifier.allowed(this@SettingsActivity)) {
+                text("Android notification permission is needed for update alerts.")
+                addView(compactAction("Notification settings") {
+                    startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
+                })
+            }
+            val update = foundUpdate()
+            row {
+                addView(compactAction(if (updateStatus == "Checking…") "Checking…" else "Check for updates") { maybeCheckForUpdate(force = true) },
+                    LinearLayout.LayoutParams(if (update == null) ViewGroup.LayoutParams.WRAP_CONTENT else 0, ViewGroup.LayoutParams.WRAP_CONTENT, if (update == null) 0f else 1f))
+                update?.let { u ->
+                    addView(compactAction("Download update", primary = true) { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(UpdateFetcher.SITE))) },
+                        LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(8) })
+                }
+            }
+            val msg = updateStatus ?: update?.let { UpdateCheck.manualMessage(it, BuildConfig.VERSION_NAME) }
             if (msg != null) {
-                // Result lives right under the button in a tinted panel, so nobody has to scroll to the top to learn it.
                 addView(TextView(context).apply {
                     text = msg; setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f); setTextColor(ink)
                     background = GradientDrawable().apply { setColor(accentSoft); cornerRadius = dp(14).toFloat() }
@@ -332,15 +453,13 @@ class SettingsActivity : Activity() {
                     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
                 })
             }
-            if (pending != null) {
-                row {
-                    button("Download") { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(UpdateFetcher.SITE))) }
-                    addView(TextView(context).apply {
-                        text = "Skip this version"; setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f); setTextColor(accent)
-                        minHeight = dp(48); gravity = Gravity.CENTER_VERTICAL; setPadding(dp(12), 0, dp(12), 0)
-                        setOnClickListener { prefs.updateSkipped = pending.version; updateStatus = null; render() }
-                    })
-                }
+            update?.let { u ->
+                addView(compactAction("Skip this version") {
+                    prefs.updateSkipped = u.version
+                    UpdateNotifier.cancel(this@SettingsActivity)
+                    updateStatus = null
+                    render()
+                })
             }
         }
 
@@ -368,6 +487,76 @@ class SettingsActivity : Activity() {
                     }, REQ_IMPORT)
                 }
             }
+        }
+    }
+
+    private fun whatsNew() {
+        card("What’s new") {
+            text("Installed version: ${BuildConfig.VERSION_NAME}")
+            foundUpdate()?.let { update ->
+                text("Mouthpiece ${update.version} is available.")
+                addView(compactAction("Download update", primary = true) {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(UpdateFetcher.SITE)))
+                })
+            }
+            addView(compactAction("Latest release notes") {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ReleaseNotes.LATEST_URL)))
+            })
+        }
+        ReleaseNotes.releases.forEach { release ->
+            card("Mouthpiece ${release.version}") {
+                release.changes.forEach { change -> text("• $change") }
+            }
+        }
+    }
+
+    private fun speechModels() {
+        card("Speech models") {
+            val active = prefs.modelName.takeIf(models::isInstalled)
+            text(active?.let { name -> "In use: ${Prefs.MODELS.first { it.first == name }.second}" }
+                ?: "No model ready. Download a speech model below to start dictating.")
+            text("Larger models can be more accurate but need more memory and processing time. Downloads stay on this phone and work offline.")
+            Prefs.MODELS.forEach { (name, modelLabel) ->
+                val installed = models.isInstalled(name)
+                val inUse = name == active
+                val downloading = name == downloadingModel
+                val option = LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(12), dp(10), dp(12), dp(8))
+                    background = GradientDrawable().apply {
+                        setColor(if (inUse) accentSoft else surface)
+                        cornerRadius = dp(12).toFloat()
+                        setStroke(dp(1), if (inUse) accent else pal.outline)
+                    }
+                }
+                addView(option, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(10) })
+                option.label(modelLabel)
+                option.addView(styledText(when {
+                    downloading -> downloadStatus ?: "Downloading…"
+                    inUse -> "✓ In use · Downloaded"
+                    installed -> "Downloaded · Ready to use"
+                    else -> "Not downloaded"
+                }).apply { if (inUse) { setTextColor(accent); typeface = Typeface.DEFAULT_BOLD } })
+                com.pharrlabs.voice.asr.ModelInfo.of(name)?.let { info ->
+                    option.addView(styledText("${info.family} · ${info.params} parameters").apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f) })
+                }
+                if (!inUse) {
+                    option.chips {
+                        if (installed) {
+                            addView(compactAction("Use model", primary = true) { prefs.modelName = name; render() })
+                            addView(compactAction("Remove") {
+                                val mb = models.remove(name) / 1_000_000
+                                toast("Download removed, freed $mb MB")
+                                render()
+                            }.apply { contentDescription = "Remove download: $modelLabel" })
+                        } else {
+                            addView(compactAction(if (downloading) "Downloading…" else "Download & use", primary = true) { startDownload(name) }
+                                .apply { isEnabled = downloadJob?.isActive != true; alpha = if (isEnabled) 1f else 0.5f })
+                        }
+                    }
+                }
+            }
+            if (downloadingModel == null) downloadStatus?.let { text(it) }
         }
     }
 
@@ -508,7 +697,12 @@ class SettingsActivity : Activity() {
                 hint = "Write…"; setText(draftWritten); inputType = InputType.TYPE_CLASS_TEXT
                 setOnFocusChangeListener { _, _ -> draftWritten = text.toString() }
             }.themed()
-            addView(spokenField); addView(writtenField)
+            row {
+                gravity = Gravity.TOP
+                layoutDirection = View.LAYOUT_DIRECTION_LTR
+                addView(spokenField, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(writtenField, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) })
+            }
             button("Add to dictionary") {
                 if (dictionary.put(spokenField.text.toString(), writtenField.text.toString())) {
                     draftSpoken = ""; draftWritten = ""; render()
@@ -603,10 +797,7 @@ class SettingsActivity : Activity() {
                 box.button("Open Accessibility settings") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
             }
             Step.DownloadModel -> {
-                box.text("Download the speech model once (internet needed only for this). It runs fully offline afterwards.")
-                val running = downloadJob?.isActive == true
-                box.button(if (running) "Downloading…" else "Download model") { if (!running) startDownload() }
-                downloadStatus?.let { box.text(it) }
+                box.text("A speech model is required. Choose “Download & use” in Speech models below. Once downloaded, it works offline.")
             }
             Step.BatteryExemption -> {
                 box.text("Recommended: exempt from battery optimization so Android does not stop the bubble in the background.")
@@ -615,16 +806,18 @@ class SettingsActivity : Activity() {
         }
     }
 
-    private fun startDownload() {
-        val name = prefs.modelName
+    private fun startDownload(name: String) {
+        if (downloadJob?.isActive == true) return
+        downloadingModel = name
         downloadStatus = "Starting…"
         downloadJob = scope.launch {
             val result = models.download(name) { p ->
                 runOnUiThread { downloadStatus = "Downloading… ${(p * 100).toInt()}%"; if (!isDestroyed) render() }
             }
             downloadJob = null
+            downloadingModel = null
             downloadStatus = result.fold(
-                onSuccess = { null },
+                onSuccess = { prefs.modelName = name; "Model downloaded and selected. Ready to dictate." },
                 onFailure = { "Download failed: ${it.message}. Check your connection and try again." },
             )
             if (!isDestroyed) render()
@@ -718,6 +911,23 @@ class SettingsActivity : Activity() {
 
     private fun styledText(t: String) = TextView(this).apply {
         text = t; setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f); setTextColor(muted); setPadding(0, dp(4), 0, dp(4))
+    }
+
+    /** Small visual footprint with a full-height touch target, wrapping alongside related actions. */
+    private fun compactAction(t: String, primary: Boolean = false, onClick: () -> Unit) = TextView(this).apply {
+        text = t
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+        setTextColor(if (primary) pal.onAccent else accent)
+        typeface = Typeface.DEFAULT_BOLD
+        gravity = Gravity.CENTER
+        minHeight = dp(48)
+        setPadding(dp(10), dp(8), dp(10), dp(8))
+        background = android.graphics.drawable.RippleDrawable(
+            android.content.res.ColorStateList.valueOf(pal.accentSoft),
+            pill(if (primary) accent else Color.TRANSPARENT), null,
+        )
+        isFocusable = true
+        setOnClickListener { onClick() }
     }
 
     /**
@@ -839,8 +1049,11 @@ class SettingsActivity : Activity() {
         })
     })
 
-    private companion object {
-        const val REQ_EXPORT = 101
-        const val REQ_IMPORT = 102
+    companion object {
+        const val ACTION_SELECT_MODEL = "com.pharrlabs.voice.SELECT_MODEL"
+        const val ACTION_SHOW_UPDATES = "com.pharrlabs.voice.SHOW_UPDATES"
+        private const val REQ_NOTIFICATIONS = 103
+        private const val REQ_EXPORT = 101
+        private const val REQ_IMPORT = 102
     }
 }

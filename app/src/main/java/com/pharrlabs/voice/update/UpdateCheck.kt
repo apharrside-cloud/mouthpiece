@@ -44,4 +44,7 @@ object UpdateCheck {
 
     fun available(info: UpdateInfo, installed: String, skipped: String?): Boolean =
         isNewer(info.version, installed) && info.version != skipped
+
+    fun shouldNotify(info: UpdateInfo, installed: String, skipped: String?, lastNotified: String?): Boolean =
+        available(info, installed, skipped) && info.version != lastNotified
 }

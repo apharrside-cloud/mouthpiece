@@ -42,16 +42,25 @@ class Prefs(context: Context) {
 
     fun bubbleActive(now: Long = System.currentTimeMillis()) = BubbleVisibility.active(bubbleOn, bubbleHiddenUntil, now)
 
-    /** Looks for a newer version on the download site when Settings opens. */
+    /** Checks when Settings opens and periodically in the background. */
     var updateCheck: Boolean
         get() = sp.getBoolean("update_check", true)
         set(v) = sp.edit().putBoolean("update_check", v).apply()
+
+    /** Notification opt-in. Android's notification permission is requested separately. */
+    var updateNotifications: Boolean
+        get() = sp.getBoolean("update_notifications", false)
+        set(v) = sp.edit().putBoolean("update_notifications", v).apply()
+
+    var updateNotifiedVersion: String?
+        get() = sp.getString("update_notified_version", null)
+        set(v) = sp.edit().putString("update_notified_version", v).apply()
 
     var updateLastCheck: Long
         get() = sp.getLong("update_last_check", 0L)
         set(v) = sp.edit().putLong("update_last_check", v).apply()
 
-    /** Latest version the site reported, kept so the banner shows without another request. */
+    /** Latest version the site reported, kept so the update action shows without another request. */
     var updateFound: String?
         get() = sp.getString("update_found", null)
         set(v) = sp.edit().putString("update_found", v).apply()
@@ -235,7 +244,7 @@ class Prefs(context: Context) {
         val BACKUP_KEYS = setOf(
             "model", "bubble_size", "bubble_shape", "bubble_icon", "bubble_color", "bubble_left", "bubble_corner", "period_mode", "smart_edit", "voice_edit", "interaction", "auto_stop_ms",
             "streaming", "live_caption", "undo_chip", "bubble_off_x", "bubble_off_y", "idle_opacity", "hidden_apps",
-            "auto_learn", "format_numbers", "update_check", "theme_mode", "default_style", "app_rules", "dictionary", "dictionary_seeded", "history_enabled",
+            "auto_learn", "format_numbers", "update_check", "update_notifications", "theme_mode", "default_style", "app_rules", "dictionary", "dictionary_seeded", "history_enabled",
         )
         const val DEFAULT_MODEL = "small.en-q5_1"
         val MODELS = listOf(

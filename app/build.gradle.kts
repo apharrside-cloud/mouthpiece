@@ -26,8 +26,8 @@ android {
         minSdk = 31
         targetSdk = 35
         // The release workflow passes -PpvVersionName/-PpvVersionCode (computed from the latest tag), so contributors never edit these.
-        versionCode = (project.findProperty("pvVersionCode") as String?)?.toInt() ?: 19
-        versionName = (project.findProperty("pvVersionName") as String?) ?: "0.4.9"
+        versionCode = (project.findProperty("pvVersionCode") as String?)?.toInt() ?: 500
+        versionName = (project.findProperty("pvVersionName") as String?) ?: "0.5.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild {
