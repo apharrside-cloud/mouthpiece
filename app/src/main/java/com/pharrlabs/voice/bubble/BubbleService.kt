@@ -32,6 +32,8 @@ import com.pharrlabs.voice.field.FieldFormat
 import com.pharrlabs.voice.field.FieldKind
 import com.pharrlabs.voice.inject.InjectResult
 import com.pharrlabs.voice.history.HistoryEntry
+import com.pharrlabs.voice.history.HistoryTiming
+import com.pharrlabs.voice.history.HistoryCleanupService
 import com.pharrlabs.voice.inject.InsertRecord
 import com.pharrlabs.voice.inject.Injector
 import com.pharrlabs.voice.inject.Undo
@@ -116,6 +118,8 @@ class BubbleService : AccessibilityService() {
         recorder = Recorder(this)
         injector = Injector(this)
         prefs = Prefs(this)
+        HistoryCleanupService.schedule(this)
+        prefs.history().all() // Prune expired entries even if the settings screen is never opened.
         chip = ChipOverlay(this, wm)
         hideTarget = HideTargetOverlay(this, wm)
         learner = LearnWatcher(isKnown = { c -> prefs.dictionary().get()[c.from] == c.to })
@@ -584,18 +588,24 @@ class BubbleService : AccessibilityService() {
     }
 
     private fun runPipeline(
-        source: suspend () -> ShortArray = { recorder.stop() },
+        source: suspend () -> ShortArray = { recorder.stop(trim = false) },
         rawOverride: String? = null,
         streamed: StreamingSession? = null,
     ) {
         val target = focusedNode
         pipelineJob = scope.launch {
-            val pcm = if (streamed != null) {
+            // Streaming already holds its engine; preferences can change while a recording is active.
+            var transcriptionModel = if (streamed != null) engineModel else null
+            val processingStarted = android.os.SystemClock.elapsedRealtime()
+            val captured = if (streamed != null) {
                 streamActive = false
+                val audio = recorder.stop(trim = false)
                 streamJob?.join() // let an in-flight phrase finish; it is already part of the session
                 streamJob = null
-                recorder.stop(trim = false)
+                audio
             } else source()
+            val recordingMs = if (rawOverride == null) HistoryTiming.recordingMs(captured.size).takeIf { it > 0 } else null
+            val pcm = if (streamed != null || rawOverride != null) captured else SilenceTrimmer.trim(captured)
             if (BuildConfig.DEBUG) {
                 val peak = pcm.maxOfOrNull { kotlin.math.abs(it.toInt()) } ?: 0
                 val rms = if (pcm.isEmpty()) 0.0 else kotlin.math.sqrt(pcm.sumOf { it.toDouble() * it } / pcm.size)
@@ -609,8 +619,8 @@ class BubbleService : AccessibilityService() {
                 when {
                     rawOverride != null -> rawOverride
                     streamed != null && !streamFailed -> streamed.finish(pcm)
-                    streamed != null -> getEngine().transcribe(SilenceTrimmer.trim(pcm))
-                    else -> getEngine().transcribe(pcm)
+                    streamed != null -> getEngine().also { transcriptionModel = engineModel }.transcribe(SilenceTrimmer.trim(pcm))
+                    else -> getEngine().also { transcriptionModel = engineModel }.transcribe(pcm)
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -664,7 +674,10 @@ class BubbleService : AccessibilityService() {
                 if (prefs.undoChip) offerUndo(it)
             }
             if (prefs.historyEnabled) {
-                prefs.history().add(HistoryEntry(System.currentTimeMillis(), focusedPkg.orEmpty(), raw, text, result.name))
+                prefs.history().add(HistoryEntry(System.currentTimeMillis(), focusedPkg.orEmpty(), raw, text, result.name,
+                    recordingMs = recordingMs,
+                    processingMs = if (rawOverride == null) android.os.SystemClock.elapsedRealtime() - processingStarted else null,
+                    modelName = transcriptionModel))
             }
             if (prefs.autoLearn) main.postDelayed({
                 val n = findInputFocus() ?: return@postDelayed

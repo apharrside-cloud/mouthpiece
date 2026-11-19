@@ -22,6 +22,9 @@
             </intent-filter>
         </activity>
 
+        <service android:name=".history.HistoryCleanupService"
+            android:exported="true" android:permission="android.permission.BIND_JOB_SERVICE" />
+
         <service
             android:name=".update.UpdateJobService"
             android:exported="true"

@@ -25,9 +25,9 @@ android {
         buildConfigField("String", "OWNER_TERMS", if (share) "\"\"" else "\"$ownerTerms\"")
         minSdk = 31
         targetSdk = 35
-        // The release workflow passes -PpvVersionName/-PpvVersionCode (computed from the latest tag), so contributors never edit these.
-        versionCode = (project.findProperty("pvVersionCode") as String?)?.toInt() ?: 500
-        versionName = (project.findProperty("pvVersionName") as String?) ?: "0.5.0"
+        // CI normally increments the latest tag; a newer default requests a specific release version.
+        versionCode = (project.findProperty("pvVersionCode") as String?)?.toInt() ?: 504
+        versionName = (project.findProperty("pvVersionName") as String?) ?: "0.5.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild {

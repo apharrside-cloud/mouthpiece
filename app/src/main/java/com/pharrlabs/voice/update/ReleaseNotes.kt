@@ -7,6 +7,13 @@ object ReleaseNotes {
     const val LATEST_URL = "https://github.com/apharrside-cloud/mouthpiece/releases/latest"
 
     val releases = listOf(
+        ReleaseNote("0.5.4", listOf(
+            "A cleaner History page with date groups, compact Copy actions, and full text and timing details on tap.",
+            "History now keeps the last 30 days, with automatic cleanup of older entries.",
+            "New metrics for words, dictation count, average length, recording time, average recording duration and words per minute.",
+            "Home shows each speech model’s average processing time and sample count from the last 30 days.",
+            "A dot on the What’s new menu tile highlights an available app update.",
+        )),
         ReleaseNote("0.5.2", listOf(
             "What’s new now lists the 0.5.1 changes.",
         )),
