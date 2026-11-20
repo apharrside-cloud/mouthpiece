@@ -22,6 +22,9 @@ data class ModelSpec(val url: String, val sha256: String, val sizeBytes: Long, v
 }
 
 /** Downloads whisper models into [dir], verifying size and SHA-256 before the file becomes visible. */
+/** Models dropped from the picker; their files are cleaned up. */
+private val RETIRED = listOf("large-v3-turbo-q5_0")
+
 class ModelManager(private val dir: File, private val specs: Map<String, ModelSpec> = DEFAULT_SPECS) {
 
     fun modelFile(name: String): File = File(dir, "ggml-$name.bin")
@@ -36,6 +39,15 @@ class ModelManager(private val dir: File, private val specs: Map<String, ModelSp
         if (spec.isMultiFile) return spec.parts.all { File(modelDir(name), it.name).let { f -> f.isFile && f.length() == it.sizeBytes } }
         val f = modelFile(name)
         return f.isFile && f.length() == spec.sizeBytes
+    }
+
+    /** Deletes models the app no longer offers (e.g. Large turbo) so they stop taking up space. Returns bytes freed. */
+    fun removeRetired(): Long {
+        var freed = 0L
+        for (name in RETIRED) for (f in listOf(modelFile(name), File(dir, "ggml-$name.bin.part"))) {
+            if (f.isFile) { val n = f.length(); if (f.delete()) freed += n }
+        }
+        return freed
     }
 
     /** Deletes a downloaded model (and any half-finished download). Returns the bytes freed; unknown names free nothing. */

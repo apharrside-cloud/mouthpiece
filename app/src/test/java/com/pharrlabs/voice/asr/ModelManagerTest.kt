@@ -137,6 +137,14 @@ class ModelManagerTest {
         }
     }
 
+    @Test fun retiredModelFilesAreDeleted() {
+        val old = File(dir, "ggml-large-v3-turbo-q5_0.bin").apply { writeBytes(ByteArray(5000)) }
+        val part = File(dir, "ggml-large-v3-turbo-q5_0.bin.part").apply { writeBytes(ByteArray(300)) }
+        val keep = File(dir, "ggml-small.en-q5_1.bin").apply { writeBytes(ByteArray(10)) }
+        assertEquals(5300L, ModelManager(dir).removeRetired())
+        assertFalse(old.exists()); assertFalse(part.exists()); assertTrue(keep.exists())
+    }
+
     @Test fun multiFileModelDownloadsEveryFileIntoItsFolder() = runBlocking<Unit> {
         val a = ByteArray(30_000) { (it % 7).toByte() }
         val b = ByteArray(20_000) { (it % 11).toByte() }

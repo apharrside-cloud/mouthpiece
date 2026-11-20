@@ -127,6 +127,7 @@ class SettingsActivity : Activity() {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
         models = ModelManager(getExternalFilesDir(null)!!)
+        Thread { models.removeRetired() }.start()
         tab = savedInstanceState?.getString("page")?.let { name -> Tab.values().find { it.name == name } } ?: Tab.Home
         page = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         titleView = TextView(this).apply {
