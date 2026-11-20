@@ -117,7 +117,7 @@ class ModelManagerTest {
 
     @Test fun fiveModelsAreOffered() {
         assertEquals(
-            listOf("base.en-q5_1", "small.en-q5_1", ModelManager.PARAKEET_V2, "medium.en-q5_0"),
+            listOf("base.en-q5_1", "small.en-q5_1", ModelManager.PARAKEET_V2, "medium.en-q5_0", "large-v3-turbo-q5_0"),
             com.pharrlabs.voice.settings.Prefs.MODELS.map { it.first },
         )
     }
@@ -138,12 +138,12 @@ class ModelManagerTest {
     }
 
     @Test fun retiredModelFilesAreDeleted() {
-        val old = File(dir, "ggml-large-v3-turbo-q5_0.bin").apply { writeBytes(ByteArray(5000)) }
-        val part = File(dir, "ggml-large-v3-turbo-q5_0.bin.part").apply { writeBytes(ByteArray(300)) }
-        val tiny = File(dir, "ggml-tiny.en-q5_1.bin").apply { writeBytes(ByteArray(700)) }
+        val old = File(dir, "ggml-tiny.en-q5_1.bin").apply { writeBytes(ByteArray(5000)) }
+        val part = File(dir, "ggml-tiny.en-q5_1.bin.part").apply { writeBytes(ByteArray(300)) }
+        val tiny = File(dir, "ggml-medium.en-q5_0.bin").apply { writeBytes(ByteArray(700)) }
         val keep = File(dir, "ggml-small.en-q5_1.bin").apply { writeBytes(ByteArray(10)) }
-        assertEquals(6000L, ModelManager(dir).removeRetired())
-        assertFalse(old.exists()); assertFalse(part.exists()); assertFalse(tiny.exists()); assertTrue(keep.exists())
+        assertEquals(5300L, ModelManager(dir).removeRetired())
+        assertFalse(old.exists()); assertFalse(part.exists()); assertTrue("current models are never removed", tiny.exists() && keep.exists())
     }
 
     @Test fun multiFileModelDownloadsEveryFileIntoItsFolder() = runBlocking<Unit> {
@@ -184,6 +184,7 @@ class ModelManagerTest {
         val s = ModelManager.DEFAULT_SPECS
         assertEquals(59_721_011L, s.getValue("base.en-q5_1").sizeBytes)
         assertEquals(539_225_533L, s.getValue("medium.en-q5_0").sizeBytes)
+        assertEquals(574_041_195L, s.getValue("large-v3-turbo-q5_0").sizeBytes)
     }
 
     @Test fun theDefaultModelIsTheRecommendedOne() {

@@ -16,7 +16,7 @@ score*.py compute WER). LibriSpeech is read audiobooks, not dictation, so treat 
 | Distil-Whisper small.en | whisper.cpp | 10.6% (20 clips) | 0.46 | 336 MB |
 | Distil-Whisper medium.en | whisper.cpp | 57% (20 clips, shrunk window) | 1.6 | 794 MB |
 | Whisper medium.en q5_0 (kept; fixed window: 6.0% on 8 clips, was 17.4%) | whisper.cpp | 13% (20 clips, shrunk window) | 4.1-4.9 | 540 MB |
-| Whisper large-v3-turbo q5_0 (DROPPED from the app, too slow) | whisper.cpp | 48% shrunk window / 4.2% full window (8 clips) | 5.9 | 574 MB |
+| Whisper large-v3-turbo q5_0 (kept as "slowest, most accurate") | whisper.cpp | 48% shrunk window / 4.2% full window (8 clips) | 5.9 | 574 MB |
 
 ## Findings
 - whisper.cpp `audio_ctx` shrinking is only safe for small and below. Medium and large-turbo loop/garble with it
