@@ -251,8 +251,8 @@ class Prefs(context: Context) {
             "tiny.en-q5_1" to "Fastest (tiny, ~32 MB)",
             "base.en-q5_1" to "Fast (base, ~60 MB)",
             "small.en-q5_1" to "Balanced (small, ~190 MB)",
+            "parakeet-tdt-0.6b-v2-int8" to "Accurate + quick (Parakeet 0.6B, ~660 MB)",
             "medium.en-q5_0" to "More accurate (medium, ~540 MB, slower)",
-            "large-v3-turbo-q5_0" to "Most accurate (large turbo, ~575 MB, slower)",
         )
     }
 }
