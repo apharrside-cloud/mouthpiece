@@ -29,10 +29,10 @@ class SettingsActivityTest {
         val previousFound = prefs.updateFound
         val previousSkipped = prefs.updateSkipped
         val manager = ModelManager(context.getExternalFilesDir(null)!!)
-        val tiny = manager.modelFile("tiny.en-q5_1")
-        val created = !tiny.exists()
+        val base = manager.modelFile("base.en-q5_1")
+        val created = !base.exists()
         // Only file presence/size is needed for this UI test. Never replace an existing downloaded model.
-        if (created) RandomAccessFile(tiny, "rw").use { it.setLength(ModelManager.DEFAULT_SPECS.getValue("tiny.en-q5_1").sizeBytes) }
+        if (created) RandomAccessFile(base, "rw").use { it.setLength(ModelManager.DEFAULT_SPECS.getValue("base.en-q5_1").sizeBytes) }
         prefs.modelName = "medium.en-q5_0"
         prefs.updateCheck = false
         prefs.updateFound = "99.0.0"
@@ -45,7 +45,7 @@ class SettingsActivityTest {
             instrumentation.runOnMainSync {
                 val all = views(activity.window.decorView)
                 fun text(value: String) = all.filterIsInstance<TextView>().first { it.text.toString() == value }
-                assertEquals("tiny.en-q5_1", prefs.modelName)
+                assertEquals("base.en-q5_1", prefs.modelName)
                 assertTrue(text("✓ In use · Downloaded").isShown)
                 assertNotNull(text("Not downloaded"))
                 assertNotNull(text("Download & use"))
@@ -108,7 +108,7 @@ class SettingsActivityTest {
             prefs.updateCheck = previousCheck
             prefs.updateFound = previousFound
             prefs.updateSkipped = previousSkipped
-            if (created) tiny.delete()
+            if (created) base.delete()
         }
     }
 }

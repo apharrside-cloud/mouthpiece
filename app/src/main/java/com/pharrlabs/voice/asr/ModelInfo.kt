@@ -12,7 +12,6 @@ data class ModelInfo(val family: String, val params: String, val quantization: S
             ModelInfo("OpenAI Whisper $variant", params, quant, "ggml-$key.bin")
 
         private val all = mapOf(
-            "tiny.en-q5_1" to whisper("tiny.en", "39M", "q5_1", "tiny.en-q5_1"),
             "base.en-q5_1" to whisper("base.en", "74M", "q5_1", "base.en-q5_1"),
             "small.en-q5_1" to whisper("small.en", "244M", "q5_1", "small.en-q5_1"),
             "medium.en-q5_0" to whisper("medium.en", "769M", "q5_0", "medium.en-q5_0"),

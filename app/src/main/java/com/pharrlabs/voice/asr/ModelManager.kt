@@ -23,7 +23,7 @@ data class ModelSpec(val url: String, val sha256: String, val sizeBytes: Long, v
 
 /** Downloads whisper models into [dir], verifying size and SHA-256 before the file becomes visible. */
 /** Models dropped from the picker; their files are cleaned up. */
-private val RETIRED = listOf("large-v3-turbo-q5_0")
+private val RETIRED = listOf("large-v3-turbo-q5_0", "tiny.en-q5_1")
 
 class ModelManager(private val dir: File, private val specs: Map<String, ModelSpec> = DEFAULT_SPECS) {
 
@@ -144,11 +144,6 @@ class ModelManager(private val dir: File, private val specs: Map<String, ModelSp
         const val PARAKEET_V2 = "parakeet-tdt-0.6b-v2-int8"
 
         val DEFAULT_SPECS: Map<String, ModelSpec> = mapOf(
-            "tiny.en-q5_1" to ModelSpec(
-                "$HF/ggml-tiny.en-q5_1.bin",
-                "c77c5766f1cef09b6b7d47f21b546cbddd4157886b3b5d6d4f709e91e66c7c2b",
-                32_166_155L
-            ),
             "small.en-q5_1" to ModelSpec(
                 "$HF/ggml-small.en-q5_1.bin",
                 "bfdff4894dcb76bbf647d56263ea2a96645423f1669176f4844a1bf8e478ad30",

@@ -11,6 +11,7 @@ object ReleaseNotes {
             "New recommended speech model: Parakeet 0.6B. More accurate than Balanced at a similar speed, with punctuation built in.",
             "Fixed Medium producing garbled text. Its accuracy is now much better, though it is still slow.",
             "A dictation already being transcribed now keeps going if the screen turns off, and is copied to the clipboard if the text field is gone.",
+            "Parakeet is now the default model, and the Fastest tier is now Base (the Tiny model is retired).",
             "The Large (turbo) model is retired. It was too slow on a phone. A downloaded copy is removed automatically.",
         )),
         ReleaseNote("0.5.2", listOf(

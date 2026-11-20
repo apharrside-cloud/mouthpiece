@@ -31,3 +31,10 @@ score*.py compute WER). LibriSpeech is read audiobooks, not dictation, so treat 
 - Parakeet 0.6B **ultra** int8: 11.3% WER (one clip with 45 errors; RTF 0.19). Not better than v2.
 - Parakeet 0.6B **v3** int8 (multilingual): 11.2% WER, RTF 0.24. Not better than v2 for English.
 - Verdict: v2 stays the in-between tier. Next candidate to test is Parakeet 110M (126 MB, 6.9% WER, ~10x faster).
+
+## Looking for a tier between Parakeet 0.6B v2 and Medium (Nov 20)
+Nothing found that fits. Parakeet v2 (6.3%, RTF ~0.3) already matches Medium (6.0%, RTF ~4.9).
+- Distil-Whisper medium.en, full window: 8.5% WER on 20 clips, RTF 1.76 (794 MB). Worse than Balanced and 4x slower than Parakeet.
+- Parakeet unified en 0.6B int8: 8.7% WER, RTF 0.38. Worse than v2.
+- Whisper small.en f16: 7.2% WER, RTF 0.68 (487 MB). Fits between Balanced and Parakeet, not above Parakeet.
+- Whisper large-v3-turbo, full window: 4.2% WER on 8 clips only, RTF 5.9. The only thing more accurate than Parakeet, and unusably slow.
