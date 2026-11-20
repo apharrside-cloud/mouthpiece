@@ -127,6 +127,7 @@ class SettingsActivity : Activity() {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
         models = ModelManager(getExternalFilesDir(null)!!)
+        Thread { models.removeRetired() }.start()
         tab = savedInstanceState?.getString("page")?.let { name -> Tab.values().find { it.name == name } } ?: Tab.Home
         page = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         titleView = TextView(this).apply {
@@ -520,16 +521,25 @@ class SettingsActivity : Activity() {
                 val installed = models.isInstalled(name)
                 val inUse = name == active
                 val downloading = name == downloadingModel
+                val recommended = name == Prefs.RECOMMENDED_MODEL
                 val option = LinearLayout(context).apply {
                     orientation = LinearLayout.VERTICAL
                     setPadding(dp(12), dp(10), dp(12), dp(8))
                     background = GradientDrawable().apply {
-                        setColor(if (inUse) accentSoft else surface)
+                        // In use: full accent tint. Recommended but not in use: a lighter tint and thicker outline so it stands out.
+                        setColor(when { inUse -> accentSoft; recommended -> blend(surface, accentSoft, 0.45f); else -> surface })
                         cornerRadius = dp(12).toFloat()
-                        setStroke(dp(1), if (inUse) accent else pal.outline)
+                        setStroke(if (recommended) dp(2) else dp(1), if (inUse || recommended) accent else pal.outline)
                     }
                 }
                 addView(option, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(10) })
+                if (recommended) {
+                    option.addView(TextView(context).apply {
+                        text = "★ Recommended"; setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f); typeface = Typeface.DEFAULT_BOLD
+                        setTextColor(pal.onAccent); setPadding(dp(8), dp(2), dp(8), dp(2)); setSingleLine(true)
+                        background = GradientDrawable().apply { setColor(accent); cornerRadius = dp(10).toFloat() }
+                    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                }
                 option.label(modelLabel)
                 option.addView(styledText(when {
                     downloading -> downloadStatus ?: "Downloading…"
@@ -970,6 +980,12 @@ class SettingsActivity : Activity() {
     }
 
     private fun LinearLayout.text(t: String) = addView(styledText(t))
+
+    private fun blend(from: Int, to: Int, t: Float): Int = Color.rgb(
+        (Color.red(from) + (Color.red(to) - Color.red(from)) * t).toInt(),
+        (Color.green(from) + (Color.green(to) - Color.green(from)) * t).toInt(),
+        (Color.blue(from) + (Color.blue(to) - Color.blue(from)) * t).toInt(),
+    )
 
     private fun LinearLayout.label(t: String) = addView(TextView(context).apply {
         text = t; setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f); setTextColor(ink); typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(10), 0, dp(2))

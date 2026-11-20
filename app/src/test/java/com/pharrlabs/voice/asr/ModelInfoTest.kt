@@ -22,13 +22,6 @@ class ModelInfoTest {
         assertEquals("ggml-small.en-q5_1.bin", i.file)
     }
 
-    @Test fun turboIsLargeV3Turbo() {
-        val i = ModelInfo.of("large-v3-turbo-q5_0")!!
-        assertEquals("OpenAI Whisper large-v3-turbo", i.family)
-        assertEquals("809M", i.params)
-        assertEquals("q5_0", i.quantization)
-    }
-
     @Test fun detailLineNamesModelSizeAndFile() {
         assertEquals(
             "OpenAI Whisper medium.en · 769M parameters · q5_0 quantized · ggml-medium.en-q5_0.bin",
@@ -37,7 +30,13 @@ class ModelInfoTest {
     }
 
     @Test fun fileNamesMatchTheDownloader() {
-        for ((name, _) in Prefs.MODELS) assertEquals("ggml-$name.bin", ModelInfo.of(name)!!.file)
+        for ((name, _) in Prefs.MODELS.filter { it.first != ModelManager.PARAKEET_V2 }) assertEquals("ggml-$name.bin", ModelInfo.of(name)!!.file)
+    }
+
+    @Test fun parakeetIsDescribedAsParakeet() {
+        val i = ModelInfo.of(ModelManager.PARAKEET_V2)!!
+        assertTrue(i.family.contains("Parakeet"))
+        assertEquals("int8", i.quantization)
     }
 
     @Test fun allRunThroughWhisperCpp() {

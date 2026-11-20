@@ -34,8 +34,12 @@ Java_com_pharrlabs_voice_asr_WhisperNative_fullTranscribe(JNIEnv *env, jobject, 
     params.no_timestamps = true;
     // whisper encodes a fixed 30 s window (1500 frames = 50/s); shrink it to the clip length
     // (+2 s margin). Spike B: halves latency (small.en 11 s clip 5.8 s -> 2.9 s).
+    // Only safe for small and below (audio state <= 768). Phone benchmark: medium and large-turbo decode
+    // garbage/loops with a shrunk window (large-turbo 65% word errors vs 4% with the full window), so
+    // they keep the full 30 s window.
     int frames = (int) ((n / 16000.0) * 50.0) + 100;
-    params.audio_ctx = frames < 1500 ? frames : 0;
+    bool canShrink = whisper_model_n_audio_state(ctx) <= 768;
+    params.audio_ctx = (canShrink && frames < 1500) ? frames : 0;
     params.print_progress = false;
     params.print_realtime = false;
     params.print_special = false;

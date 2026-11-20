@@ -20,6 +20,8 @@ import com.pharrlabs.voice.asr.ModelMissing
 import com.pharrlabs.voice.asr.ModelSelection
 import com.pharrlabs.voice.asr.StreamingSession
 import com.pharrlabs.voice.audio.SilenceTrimmer
+import com.pharrlabs.voice.asr.ParakeetEngine
+import com.pharrlabs.voice.asr.Transcriber
 import com.pharrlabs.voice.asr.WhisperCppEngine
 import com.pharrlabs.voice.audio.Recorder
 import com.pharrlabs.voice.clean.Cleaner
@@ -63,7 +65,7 @@ class BubbleService : AccessibilityService() {
     private lateinit var recorder: Recorder
     private lateinit var injector: Injector
     private lateinit var prefs: Prefs
-    private var engine: WhisperCppEngine? = null
+    private var engine: Transcriber? = null
     private var engineModel: String? = null
 
     private var bubble: BubbleView? = null
@@ -433,7 +435,9 @@ class BubbleService : AccessibilityService() {
         main.removeCallbacks(evaluate)
         main.removeCallbacks(reanchor)
         main.removeCallbacks(probe)
-        cancelDictation()
+        // A transcription already under way keeps running (screen off, app switch): its text is typed when
+        // the field is still there, otherwise copied to the clipboard. Abandoning it would lose minutes of work.
+        if (machine.state != BubbleState.Processing || reason == "destroy") cancelDictation()
         chip.hide()
         learner.stop()
         hideTarget.detach()
@@ -590,6 +594,21 @@ class BubbleService : AccessibilityService() {
     ) {
         val target = focusedNode
         pipelineJob = scope.launch {
+            val wake = (getSystemService(POWER_SERVICE) as android.os.PowerManager)
+                .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "mouthpiece:transcribe")
+            // Keeps the CPU running for a long transcription after the screen turns off; times out as a safety net.
+            wake.acquire(15 * 60_000L)
+            try { runPipelineBody(target, source, rawOverride, streamed) } finally { if (wake.isHeld) wake.release() }
+        }
+    }
+
+    private suspend fun runPipelineBody(
+        target: AccessibilityNodeInfo?,
+        source: suspend () -> ShortArray,
+        rawOverride: String?,
+        streamed: StreamingSession?,
+    ) {
+        run {
             val pcm = if (streamed != null) {
                 streamActive = false
                 streamJob?.join() // let an in-flight phrase finish; it is already part of the session
@@ -603,7 +622,7 @@ class BubbleService : AccessibilityService() {
             }
             machine.onRecorded(if (streamed != null) SilenceTrimmer.trim(pcm).isEmpty() else pcm.isEmpty())
             bubble?.setState(machine.state)
-            if (machine.state != BubbleState.Processing) { chip.hide(); return@launch } // empty recording or reset
+            if (machine.state != BubbleState.Processing) { chip.hide(); return } // empty recording or reset
 
             val raw = try {
                 when {
@@ -616,13 +635,13 @@ class BubbleService : AccessibilityService() {
                 throw e
             } catch (e: ModelMissing) {
                 fail("Speech model missing. Open Mouthpiece to install it.")
-                return@launch
+                return
             } catch (t: Throwable) {
                 Log.e(tag, "transcription failed", t)
                 fail("Transcription failed: ${t.message}")
-                return@launch
+                return
             }
-            if (machine.state != BubbleState.Processing) return@launch
+            if (machine.state != BubbleState.Processing) return
 
             // The field that has input focus NOW wins over the one the bubble first anchored to
             // (apps like Gmail move focus between subject and body without a clean focus event).
@@ -635,7 +654,7 @@ class BubbleService : AccessibilityService() {
                     chip.hide()
                     machine.onInjected()
                     bubble?.setState(machine.state)
-                    return@launch
+                    return
                 }
             }
             val appPeriod = prefs.appRules().ruleFor(focusedPkg.orEmpty()).period
@@ -646,11 +665,16 @@ class BubbleService : AccessibilityService() {
             if (text.isEmpty()) {
                 machine.onInjected()
                 bubble?.setState(machine.state)
-                return@launch
+                return
             }
             if (dest == null || !dest.refresh()) {
-                fail("Field lost")
-                return@launch
+                // The field is gone (screen locked, app switched). Keep the work: leave the text on the clipboard.
+                val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("dictation", text))
+                Toast.makeText(this@BubbleService, "Field closed. Your dictation was copied, paste it where you want it.", Toast.LENGTH_LONG).show()
+                machine.onInjected()
+                bubble?.setState(machine.state)
+                return
             }
             val result = injector.inject(dest, text)
             Log.i(tag, "inject result=$result")
@@ -768,11 +792,12 @@ class BubbleService : AccessibilityService() {
         )
     }
 
-    private fun getEngine(): WhisperCppEngine {
+    private fun getEngine(): Transcriber {
         val model = prefs.modelName
         engine?.let { if (engineModel == model) return it else it.close() }
-        return WhisperCppEngine(ModelManager(getExternalFilesDir(null)!!).modelFile(model))
-            .also { engine = it; engineModel = model }
+        val models = ModelManager(getExternalFilesDir(null)!!)
+        val next: Transcriber = if (models.isMultiFile(model)) ParakeetEngine(models.modelDir(model)) else WhisperCppEngine(models.modelFile(model))
+        return next.also { engine = it; engineModel = model }
     }
 
     private fun fail(reason: String) {

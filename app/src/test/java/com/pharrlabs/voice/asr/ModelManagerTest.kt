@@ -117,7 +117,7 @@ class ModelManagerTest {
 
     @Test fun fiveModelsAreOffered() {
         assertEquals(
-            listOf("tiny.en-q5_1", "base.en-q5_1", "small.en-q5_1", "medium.en-q5_0", "large-v3-turbo-q5_0"),
+            listOf("tiny.en-q5_1", "base.en-q5_1", "small.en-q5_1", ModelManager.PARAKEET_V2, "medium.en-q5_0"),
             com.pharrlabs.voice.settings.Prefs.MODELS.map { it.first },
         )
     }
@@ -126,19 +126,63 @@ class ModelManagerTest {
         for ((name, label) in com.pharrlabs.voice.settings.Prefs.MODELS) {
             val spec = ModelManager.DEFAULT_SPECS[name]
             assertNotNull("no spec for $name", spec)
-            assertEquals("sha for $name", 64, spec!!.sha256.length)
-            assertTrue("hex sha for $name", spec.sha256.all { it in '0'..'9' || it in 'a'..'f' })
-            assertTrue("url for $name", spec.url.endsWith("ggml-$name.bin"))
-            assertTrue("size for $name", spec.sizeBytes > 1_000_000)
+            val files = if (spec!!.isMultiFile) spec.parts else listOf(ModelFile("ggml-$name.bin", spec.url, spec.sha256, spec.sizeBytes))
+            for (f in files) {
+                assertEquals("sha for ${f.name}", 64, f.sha256.length)
+                assertTrue("hex sha for ${f.name}", f.sha256.all { it in '0'..'9' || it in 'a'..'f' })
+                assertTrue("url for ${f.name}", f.url.endsWith(if (spec.isMultiFile) f.name else "ggml-$name.bin"))
+                assertTrue("size for ${f.name}", f.sizeBytes > 1_000)
+            }
             assertTrue("label for $name", label.isNotBlank())
         }
+    }
+
+    @Test fun retiredModelFilesAreDeleted() {
+        val old = File(dir, "ggml-large-v3-turbo-q5_0.bin").apply { writeBytes(ByteArray(5000)) }
+        val part = File(dir, "ggml-large-v3-turbo-q5_0.bin.part").apply { writeBytes(ByteArray(300)) }
+        val keep = File(dir, "ggml-small.en-q5_1.bin").apply { writeBytes(ByteArray(10)) }
+        assertEquals(5300L, ModelManager(dir).removeRetired())
+        assertFalse(old.exists()); assertFalse(part.exists()); assertTrue(keep.exists())
+    }
+
+    @Test fun multiFileModelDownloadsEveryFileIntoItsFolder() = runBlocking<Unit> {
+        val a = ByteArray(30_000) { (it % 7).toByte() }
+        val b = ByteArray(20_000) { (it % 11).toByte() }
+        serve(a); serve(b)
+        val spec = ModelSpec("", "", 0, parts = listOf(
+            ModelFile("a.onnx", server.url("/a").toString(), sha256(a), a.size.toLong()),
+            ModelFile("b.txt", server.url("/b").toString(), sha256(b), b.size.toLong()),
+        ))
+        val m = ModelManager(dir, mapOf("multi" to spec))
+        assertFalse(m.isInstalled("multi"))
+        val progress = mutableListOf<Float>()
+        val result = m.download("multi") { progress += it }
+        assertTrue("download should succeed: ${result.exceptionOrNull()}", result.isSuccess)
+        assertTrue(m.isInstalled("multi"))
+        assertEquals(1f, progress.last(), 0.0001f)
+        assertTrue("progress never goes backwards", progress.zipWithNext().all { (x, y) -> y >= x })
+        assertEquals("no partial files left", 0, File(dir, "multi").listFiles()!!.count { it.name.endsWith(".part") })
+        assertEquals(a.size + b.size.toLong(), m.remove("multi"))
+        assertFalse(m.isInstalled("multi"))
+        assertFalse(File(dir, "multi").exists())
+    }
+
+    @Test fun multiFileModelWithOneBadFileIsNotInstalled() = runBlocking<Unit> {
+        val a = ByteArray(10_000) { 1 }
+        serve(a); serve(ByteArray(10_000) { 2 })
+        val spec = ModelSpec("", "", 0, parts = listOf(
+            ModelFile("a.bin", server.url("/a").toString(), sha256(a), a.size.toLong()),
+            ModelFile("b.bin", server.url("/b").toString(), sha256(ByteArray(10_000) { 3 }), 10_000L),
+        ))
+        val m = ModelManager(dir, mapOf("multi" to spec))
+        assertTrue(m.download("multi") { }.isFailure)
+        assertFalse("a half-downloaded multi-file model must not count as installed", m.isInstalled("multi"))
     }
 
     @Test fun pinnedSizesMatchTheHuggingFaceFiles() {
         val s = ModelManager.DEFAULT_SPECS
         assertEquals(32_166_155L, s.getValue("tiny.en-q5_1").sizeBytes)
         assertEquals(539_225_533L, s.getValue("medium.en-q5_0").sizeBytes)
-        assertEquals(574_041_195L, s.getValue("large-v3-turbo-q5_0").sizeBytes)
     }
 
     @Test fun theDefaultModelIsStillOffered() {
