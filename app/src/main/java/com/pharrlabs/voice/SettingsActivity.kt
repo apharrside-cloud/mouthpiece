@@ -36,6 +36,10 @@ import com.pharrlabs.voice.feedback.Feedback
 import com.pharrlabs.voice.feedback.FeedbackKind
 import com.pharrlabs.voice.feedback.FeedbackSender
 import com.pharrlabs.voice.feedback.SendResult
+import com.pharrlabs.voice.history.HistoryEntry
+import com.pharrlabs.voice.history.HistoryMetrics
+import com.pharrlabs.voice.history.HistoryTiming
+import com.pharrlabs.voice.history.HistoryCleanupService
 import com.pharrlabs.voice.update.UpdateCheck
 import com.pharrlabs.voice.update.UpdateFetcher
 import com.pharrlabs.voice.update.UpdateInfo
@@ -64,6 +68,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.text.DateFormat
+import java.text.NumberFormat
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Date
 
 /**
@@ -80,6 +89,7 @@ class SettingsActivity : Activity() {
     private lateinit var pageLabel: TextView
     private lateinit var header: LinearLayout
     private var pageMenu: PopupWindow? = null
+    private var whatsNewMenuTile: TextView? = null
     private lateinit var content: LinearLayout
     private lateinit var scroll: ScrollView
 
@@ -90,6 +100,7 @@ class SettingsActivity : Activity() {
     private var draftSpoken = ""
     private var draftWritten = ""
     private var draftPackage = ""
+    private var historyVisible = 20
 
     private var pal: Palette = Palettes.light
     private val accent get() = pal.accent
@@ -224,6 +235,8 @@ class SettingsActivity : Activity() {
             intent.action = null
         }
         UpdateJobService.schedule(this)
+        HistoryCleanupService.schedule(this)
+        prefs.history().all()
         render()
         maybeCheckForUpdate(force = false)
     }
@@ -328,6 +341,7 @@ class SettingsActivity : Activity() {
         val y = scroll.scrollY
         applyTheme()
         pageLabel.text = tab.label
+        whatsNewMenuTile?.let(::updateWhatsNewBadge)
         content.removeAllViews()
         when (tab) {
             Tab.Home -> home()
@@ -363,6 +377,7 @@ class SettingsActivity : Activity() {
             })
             setOnDismissListener {
                 pageMenu = null
+                whatsNewMenuTile = null
                 menuButton.setImageResource(R.drawable.ic_menu)
                 menuButton.contentDescription = "Open page menu"
             }
@@ -386,6 +401,10 @@ class SettingsActivity : Activity() {
                 )
                 isSelected = current
                 isFocusable = true
+                if (t == Tab.WhatsNew) {
+                    whatsNewMenuTile = this
+                    updateWhatsNewBadge(this)
+                }
                 setOnClickListener {
                     menu.dismiss()
                     tab = t
@@ -400,6 +419,18 @@ class SettingsActivity : Activity() {
         menuButton.setImageResource(R.drawable.ic_close)
         menuButton.contentDescription = "Close page menu"
         menu.showAsDropDown(header, dp(16), 0, Gravity.START)
+    }
+
+    private fun updateWhatsNewBadge(tile: TextView) {
+        val available = foundUpdate() != null
+        val dot = if (available) GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(accent)
+            setBounds(0, 0, dp(10), dp(10))
+        } else null
+        tile.setCompoundDrawablesRelative(null, null, dot, null)
+        tile.compoundDrawablePadding = dp(10)
+        tile.contentDescription = if (available) "What’s new, update available" else null
     }
 
     private fun home() {
@@ -512,11 +543,14 @@ class SettingsActivity : Activity() {
     }
 
     private fun speechModels() {
+        val processing = HistoryMetrics.processingByModel(prefs.history().all())
         card("Speech models") {
             val active = prefs.modelName.takeIf(models::isInstalled)
             text(active?.let { name -> "In use: ${Prefs.MODELS.first { it.first == name }.second}" }
                 ?: "No model ready. Download a speech model below to start dictating.")
             text("Listed from fastest to most accurate. Parakeet is the best balance of speed and accuracy. Medium and Large turbo can take several times longer than your speech to transcribe. Downloads stay on this phone and work offline.")
+            text("Processing time is the wait after you stop recording.")
+            if (!prefs.historyEnabled) text("History is paused. Turn on Save history on the History page to collect new timings.")
             Prefs.MODELS.forEach { (name, modelLabel) ->
                 val installed = models.isInstalled(name)
                 val inUse = name == active
@@ -551,6 +585,17 @@ class SettingsActivity : Activity() {
                 com.pharrlabs.voice.asr.ModelInfo.of(name)?.let { info ->
                     option.addView(styledText("${info.family} · ${info.params} parameters").apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f) })
                 }
+                val stats = processing[name]
+                if (stats != null) {
+                    option.addView(styledText("Avg. processing: ${HistoryTiming.formatProcessing(stats.averageMs)}").apply {
+                        setTextColor(if (inUse) accent else ink)
+                        typeface = Typeface.DEFAULT_BOLD
+                    })
+                    option.addView(styledText("${NumberFormat.getIntegerInstance().format(stats.dictations)} ${if (stats.dictations == 1) "dictation" else "dictations"} · last 30 days")
+                        .apply { textSize = 12f })
+                } else if (inUse) {
+                    option.addView(styledText("Avg. processing: No data yet").apply { textSize = 14f })
+                }
                 if (!inUse) {
                     option.chips {
                         if (installed) {
@@ -567,6 +612,7 @@ class SettingsActivity : Activity() {
                     }
                 }
             }
+            if (processing.isNotEmpty()) text("Processing time varies with dictation length and streaming.")
             if (downloadingModel == null) downloadStatus?.let { text(it) }
         }
     }
@@ -769,27 +815,143 @@ class SettingsActivity : Activity() {
 
     private fun history() {
         val h = prefs.history()
-        card("History") {
-            switchRow("Keep a log of recent dictations", "Stays on this phone. Handy when an app swallows the text.", prefs.historyEnabled) { prefs.historyEnabled = it }
-        }
         val entries = h.all()
-        if (entries.isEmpty()) {
-            card("Nothing yet") { text("Your last 20 dictations will appear here.") }
-        } else {
-            entries.forEach { e ->
-                card("${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(e.timeMs))} \u00B7 ${appName(e.pkg)}") {
-                    text(e.text)
-                    row {
-                        button("Copy") {
-                            (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Mouthpiece", e.text))
-                            toast("Copied")
-                        }
-                        button("Delete") { h.remove(e.timeMs); render() }
-                    }
-                }
+        val metrics = HistoryMetrics.from(entries)
+        val numbers = NumberFormat.getIntegerInstance()
+        val decimal = NumberFormat.getNumberInstance().apply { maximumFractionDigits = 1 }
+        card("Last 30 days") {
+            fun metric(value: String, caption: String) = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, dp(6), dp(8), dp(6))
+                addView(TextView(context).apply {
+                    text = value; textSize = 26f; setTextColor(ink); typeface = Typeface.DEFAULT_BOLD
+                })
+                addView(TextView(context).apply { text = caption; textSize = 13f; setTextColor(muted) })
             }
-            card("Clear") { button("Clear history") { h.clear(); render() } }
+            fun metricRow(a: View, b: View) {
+                addView(LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    addView(a, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    addView(b, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                })
+            }
+            metricRow(metric(numbers.format(metrics.words), "Words"), metric(numbers.format(metrics.dictations), "Dictations"))
+            metricRow(metric(decimal.format(metrics.averageWords), "Avg. words"),
+                metric(if (metrics.timedDictations == 0) "—" else HistoryTiming.format(metrics.recordingMs), "Recording time"))
+            if (metrics.timedDictations > 0) {
+                text("${HistoryTiming.format(metrics.averageRecordingMs!!)} avg. recording · ${numbers.format(metrics.wordsPerMinute!!)} words/min")
+            }
+            if (entries.any { it.recordingMs == null }) {
+                addView(styledText(if (metrics.timedDictations == 0) "Timing starts with new dictations."
+                    else "Timing: ${metrics.timedDictations} of ${metrics.dictations} dictations").apply { textSize = 13f })
+            }
         }
+        // A quiet setting row, rather than a second large introductory card.
+        content.switchRow("Save history", "30 days. Only on this phone.", prefs.historyEnabled) {
+            prefs.historyEnabled = it
+            render()
+        }
+        if (entries.isEmpty()) {
+            card(if (prefs.historyEnabled) "Your words will be here" else "History is paused") {
+                text(if (prefs.historyEnabled) "Your next dictation will appear here, ready to copy again."
+                    else "Turn on Save history to keep new dictations and their metrics.")
+            }
+        } else {
+            val heading = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+            heading.addView(styledText(if (prefs.historyEnabled) "Recent dictations" else "Saved dictations · paused").apply {
+                typeface = Typeface.DEFAULT_BOLD; setTextColor(ink)
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            heading.addView(compactAction("Clear") {
+                android.app.AlertDialog.Builder(this).setTitle("Clear history?")
+                    .setMessage("Delete all saved dictations and their metrics from this phone?")
+                    .setNegativeButton("Cancel", null).setPositiveButton("Clear history") { _, _ -> h.clear(); render() }.show()
+            }.apply { contentDescription = "Clear history" })
+            content.addView(heading)
+            var previousDay: LocalDate? = null
+            val zone = ZoneId.systemDefault()
+            val today = LocalDate.now(zone)
+            entries.take(historyVisible).forEach { entry ->
+                val day = Instant.ofEpochMilli(entry.timeMs).atZone(zone).toLocalDate()
+                if (day != previousDay) {
+                    content.addView(styledText(when (day) {
+                        today -> "Today"
+                        today.minusDays(1) -> "Yesterday"
+                        else -> day.format(DateTimeFormatter.ofPattern("EEE, MMM d"))
+                    }).apply { textSize = 13f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(16), 0, dp(6)) })
+                    previousDay = day
+                }
+                content.addView(historyRow(entry), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            }
+            if (entries.size > historyVisible) {
+                content.addView(compactAction("Show ${minOf(20, entries.size - historyVisible)} more") {
+                    historyVisible += 20; render()
+                })
+            }
+        }
+    }
+
+    private fun copyHistory(entry: HistoryEntry) {
+        (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Mouthpiece", entry.text))
+        toast("Copied")
+    }
+
+    private fun historyRow(entry: HistoryEntry) = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(0, dp(4), 0, dp(12))
+        val actions = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
+        actions.addView(TextView(context).apply {
+            text = "${appName(entry.pkg)} · ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(entry.timeMs))}"
+            textSize = 13f; setTextColor(muted)
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        actions.addView(compactAction("Copy") { copyHistory(entry) }.apply { contentDescription = "Copy dictation" })
+        actions.addView(compactAction("⋮") {}.apply {
+            contentDescription = "Dictation options"; minWidth = dp(48); textSize = 22f
+            setOnClickListener { anchor ->
+                android.widget.PopupMenu(context, anchor).apply {
+                    menu.add("View details").setOnMenuItemClickListener { showHistoryDetail(entry); true }
+                    menu.add("Delete").setOnMenuItemClickListener {
+                        android.app.AlertDialog.Builder(this@SettingsActivity).setTitle("Delete dictation?")
+                            .setMessage("This also removes it from your metrics.")
+                            .setNegativeButton("Cancel", null).setPositiveButton("Delete") { _, _ ->
+                                prefs.history().remove(entry.timeMs); render()
+                            }.show()
+                        true
+                    }
+                }.show()
+            }
+        })
+        addView(actions)
+        addView(TextView(context).apply {
+            text = entry.text; textSize = 16f; setTextColor(ink)
+            maxLines = 3; ellipsize = android.text.TextUtils.TruncateAt.END
+            setPadding(0, dp(2), 0, dp(8)); minHeight = dp(48)
+            isFocusable = true
+            contentDescription = "${entry.text}. Tap for full dictation and timing details"
+            setOnClickListener { showHistoryDetail(entry) }
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        addView(styledText(buildString {
+            val count = HistoryMetrics.wordCount(entry.text)
+            append("$count ${if (count == 1) "word" else "words"}")
+            entry.recordingMs?.let { append(" · ${HistoryTiming.format(it)} recording") }
+            if (entry.result == "ClipboardOnly") append(" · Copied to clipboard")
+        }).apply { textSize = 12f; setPadding(0, 0, 0, dp(12)) })
+        addView(View(context).apply { setBackgroundColor(pal.outline) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
+    }
+
+    private fun showHistoryDetail(entry: HistoryEntry) {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(24), dp(8), dp(24), dp(16))
+            text(DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(entry.timeMs)))
+            text("${HistoryMetrics.wordCount(entry.text)} words")
+            text(entry.recordingMs?.let { "Recording: ${HistoryTiming.format(it)} (includes pauses)" } ?: "Recording time wasn't saved for this dictation.")
+            entry.modelName?.let { name -> text("Model: ${Prefs.MODELS.firstOrNull { it.first == name }?.second ?: name}") }
+            entry.processingMs?.let { text("Processing: ${HistoryTiming.formatProcessing(it)} after recording") }
+            if (entry.result == "ClipboardOnly") text("Copied to clipboard. Paste manually into the app.")
+            addView(styledText(entry.text).apply { setTextColor(ink); setTextIsSelectable(true); setPadding(0, dp(16), 0, 0) })
+        }
+        android.app.AlertDialog.Builder(this).setTitle(appName(entry.pkg))
+            .setView(ScrollView(this).apply { addView(box) })
+            .setNegativeButton("Close", null).setPositiveButton("Copy") { _, _ -> copyHistory(entry) }.show()
     }
 
     private fun stepRow(box: LinearLayout, step: Step) {

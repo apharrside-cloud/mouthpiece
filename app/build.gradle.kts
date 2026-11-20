@@ -25,7 +25,7 @@ android {
         buildConfigField("String", "OWNER_TERMS", if (share) "\"\"" else "\"$ownerTerms\"")
         minSdk = 31
         targetSdk = 35
-        // The release workflow passes -PpvVersionName/-PpvVersionCode (computed from the latest tag), so contributors never edit these.
+        // CI normally increments the latest tag; a newer default requests a specific release version.
         versionCode = (project.findProperty("pvVersionCode") as String?)?.toInt() ?: 600
         versionName = (project.findProperty("pvVersionName") as String?) ?: "0.6.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

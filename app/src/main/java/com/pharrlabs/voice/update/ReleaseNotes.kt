@@ -13,6 +13,13 @@ object ReleaseNotes {
             "The model list now runs from fastest to most accurate. The Tiny model is retired (Base is the new fastest) and its download is removed automatically.",
             "A dictation already being transcribed now keeps going if the screen turns off, and is copied to the clipboard if the text field is gone.",
         )),
+        ReleaseNote("0.5.4", listOf(
+            "A cleaner History page with date groups, compact Copy actions, and full text and timing details on tap.",
+            "History now keeps the last 30 days, with automatic cleanup of older entries.",
+            "New metrics for words, dictation count, average length, recording time, average recording duration and words per minute.",
+            "Home shows each speech model’s average processing time and sample count from the last 30 days.",
+            "A dot on the What’s new menu tile highlights an available app update.",
+        )),
         ReleaseNote("0.5.2", listOf(
             "What’s new now lists the 0.5.1 changes.",
         )),
