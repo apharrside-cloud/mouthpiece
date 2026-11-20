@@ -516,7 +516,7 @@ class SettingsActivity : Activity() {
             val active = prefs.modelName.takeIf(models::isInstalled)
             text(active?.let { name -> "In use: ${Prefs.MODELS.first { it.first == name }.second}" }
                 ?: "No model ready. Download a speech model below to start dictating.")
-            text("Larger models can be more accurate but need more memory and processing time. Downloads stay on this phone and work offline.")
+            text("Listed from fastest to most accurate. Parakeet is the best balance of speed and accuracy. Medium and Large turbo can take several times longer than your speech to transcribe. Downloads stay on this phone and work offline.")
             Prefs.MODELS.forEach { (name, modelLabel) ->
                 val installed = models.isInstalled(name)
                 val inUse = name == active
@@ -547,6 +547,7 @@ class SettingsActivity : Activity() {
                     installed -> "Downloaded · Ready to use"
                     else -> "Not downloaded"
                 }).apply { if (inUse) { setTextColor(accent); typeface = Typeface.DEFAULT_BOLD } })
+                if (name in Prefs.SLOW_MODELS) option.addView(styledText("Slow on a phone: a minute of speech can take several minutes to transcribe.").apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f) })
                 com.pharrlabs.voice.asr.ModelInfo.of(name)?.let { info ->
                     option.addView(styledText("${info.family} · ${info.params} parameters").apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f) })
                 }

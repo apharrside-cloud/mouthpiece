@@ -12,8 +12,8 @@ data class ModelInfo(val family: String, val params: String, val quantization: S
             ModelInfo("OpenAI Whisper $variant", params, quant, "ggml-$key.bin")
 
         private val all = mapOf(
-            "tiny.en-q5_1" to whisper("tiny.en", "39M", "q5_1", "tiny.en-q5_1"),
             "base.en-q5_1" to whisper("base.en", "74M", "q5_1", "base.en-q5_1"),
+            "large-v3-turbo-q5_0" to whisper("large-v3-turbo", "809M", "q5_0", "large-v3-turbo-q5_0"),
             "small.en-q5_1" to whisper("small.en", "244M", "q5_1", "small.en-q5_1"),
             "medium.en-q5_0" to whisper("medium.en", "769M", "q5_0", "medium.en-q5_0"),
             "parakeet-tdt-0.6b-v2-int8" to ModelInfo("NVIDIA Parakeet TDT v2 (English)", "600M", "int8", "encoder/decoder/joiner .int8.onnx"),

@@ -33,6 +33,12 @@ class ModelInfoTest {
         for ((name, _) in Prefs.MODELS.filter { it.first != ModelManager.PARAKEET_V2 }) assertEquals("ggml-$name.bin", ModelInfo.of(name)!!.file)
     }
 
+    @Test fun turboIsLargeV3Turbo() {
+        val i = ModelInfo.of("large-v3-turbo-q5_0")!!
+        assertEquals("OpenAI Whisper large-v3-turbo", i.family)
+        assertEquals("809M", i.params)
+    }
+
     @Test fun parakeetIsDescribedAsParakeet() {
         val i = ModelInfo.of(ModelManager.PARAKEET_V2)!!
         assertTrue(i.family.contains("Parakeet"))

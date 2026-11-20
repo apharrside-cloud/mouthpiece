@@ -8,10 +8,10 @@ object ReleaseNotes {
 
     val releases = listOf(
         ReleaseNote("0.6.0", listOf(
-            "New recommended speech model: Parakeet 0.6B. More accurate than Balanced at a similar speed, with punctuation built in.",
-            "Fixed Medium producing garbled text. Its accuracy is now much better, though it is still slow.",
+            "New recommended speech model: Parakeet 0.6B. More accurate than Balanced at a similar speed, with punctuation built in. It is now the default for new installs.",
+            "Fixed Medium and Large turbo producing garbled text. Both are now accurate, but they are slow: expect several times longer than your speech.",
+            "The model list now runs from fastest to most accurate. The Tiny model is retired (Base is the new fastest) and its download is removed automatically.",
             "A dictation already being transcribed now keeps going if the screen turns off, and is copied to the clipboard if the text field is gone.",
-            "The Large (turbo) model is retired. It was too slow on a phone. A downloaded copy is removed automatically.",
         )),
         ReleaseNote("0.5.2", listOf(
             "What’s new now lists the 0.5.1 changes.",

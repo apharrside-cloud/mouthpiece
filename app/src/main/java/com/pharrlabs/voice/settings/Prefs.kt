@@ -246,15 +246,17 @@ class Prefs(context: Context) {
             "streaming", "live_caption", "undo_chip", "bubble_off_x", "bubble_off_y", "idle_opacity", "hidden_apps",
             "auto_learn", "format_numbers", "update_check", "update_notifications", "theme_mode", "default_style", "app_rules", "dictionary", "dictionary_seeded", "history_enabled",
         )
-        const val DEFAULT_MODEL = "small.en-q5_1"
+        const val DEFAULT_MODEL = "parakeet-tdt-0.6b-v2-int8"
         /** Best accuracy for its speed on a phone; flagged in the model list. */
         const val RECOMMENDED_MODEL = "parakeet-tdt-0.6b-v2-int8"
+        /** Models that take several times longer than the speech itself on a phone. */
+        val SLOW_MODELS = setOf("medium.en-q5_0", "large-v3-turbo-q5_0")
         val MODELS = listOf(
-            "tiny.en-q5_1" to "Fastest (tiny, ~32 MB)",
-            "base.en-q5_1" to "Fast (base, ~60 MB)",
-            "small.en-q5_1" to "Balanced (small, ~190 MB)",
-            "parakeet-tdt-0.6b-v2-int8" to "Accurate + quick (Parakeet 0.6B, ~660 MB)",
-            "medium.en-q5_0" to "More accurate (medium, ~540 MB, slower)",
+            "base.en-q5_1" to "Fastest (Base, ~60 MB)",
+            "small.en-q5_1" to "Balanced (Small, ~190 MB)",
+            "parakeet-tdt-0.6b-v2-int8" to "Accurate + quick (Parakeet, ~660 MB)",
+            "medium.en-q5_0" to "Slow (Medium, ~540 MB)",
+            "large-v3-turbo-q5_0" to "Slowest, most accurate (Large turbo, ~575 MB)",
         )
     }
 }
