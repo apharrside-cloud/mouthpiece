@@ -25,3 +25,9 @@ score*.py compute WER). LibriSpeech is read audiobooks, not dictation, so treat 
 - A candidate worth adding needs to beat Parakeet 0.6B on WER at RTF <= ~0.5, or match ~6-7% at a much smaller
   size / faster speed (Parakeet 110M is that case).
 - Parakeet 110M is the obvious next tier: needs tar.bz2 extraction (commons-compress) or a self-hosted copy.
+
+## Parakeet variants (40 clips, same set)
+- Parakeet TDT 0.6B **v2** (shipped): 6.3% WER.
+- Parakeet 0.6B **ultra** int8: 11.3% WER (one clip with 45 errors; RTF 0.19). Not better than v2.
+- Parakeet 0.6B **v3** int8 (multilingual): 11.2% WER, RTF 0.24. Not better than v2 for English.
+- Verdict: v2 stays the in-between tier. Next candidate to test is Parakeet 110M (126 MB, 6.9% WER, ~10x faster).
